@@ -30,9 +30,178 @@ INSERT INTO user_scope_permissions (user_id, permission) VALUES
 -- Insert Maps
 -- Simple JSON structure for GameLevel
 INSERT INTO maps (id, name, level, verified, published, created_at, updated_at, author_id) VALUES
-('map1', 'Forest Battle', '{"spawnPoints":[],"walls":[],"zombieSpawnPoints":[],"name":"Forest Battle"}', true, true, NOW(), NOW(), 'user1'),
-('map2', 'Desert Arena', '{"spawnPoints":[],"walls":[],"zombieSpawnPoints":[],"name":"Desert Arena"}', true, true, NOW(), NOW(), 'user1'),
-('map3', 'City Streets', '{"spawnPoints":[],"walls":[],"zombieSpawnPoints":[],"name":"City Streets"}', false, false, NOW(), NOW(), 'user2');
+-- Big arena with multiple tiling walls and obstacle boxes using built-in assets from client/public/assets
+('map1', 'Big Arena', '{"objects":[
+  {"objectType":"spawnPoint","id":"sp-player","spawns":"player","x":0,"y":0,"scale":1,"rotation":0},
+  {"objectType":"spawnPoint","id":"sp-z1","spawns":"zombie","x":800,"y":0,"scale":1,"rotation":0},
+  {"objectType":"spawnPoint","id":"sp-z2","spawns":"zombie","x":-800,"y":0,"scale":1,"rotation":0},
+
+  {"objectType":"asset","id":"hwall-top","x":0,"y":-600,"scale":1,"rotation":0,
+    "tiling":true,"width":3000,"height":60,
+    "sprite":{"assetSource":"builtIn","assetPath":"/assets/sandwall.jpeg"},
+    "colliders":[{"x":0,"y":0,"rotation":0,"shape":{"shape":"rectangle","width":3000,"height":60},"destroyBullet":true}]
+  },
+  {"objectType":"asset","id":"hwall-bottom","x":0,"y":600,"scale":1,"rotation":0,
+    "tiling":true,"width":3000,"height":60,
+    "sprite":{"assetSource":"builtIn","assetPath":"/assets/sandwall.jpeg"},
+    "colliders":[{"x":0,"y":0,"rotation":0,"shape":{"shape":"rectangle","width":3000,"height":60},"destroyBullet":true}]
+  },
+  {"objectType":"asset","id":"vwall-left","x":10000,"y":10000,"scale":1,"rotation":0,
+    "tiling":true,"width":1,"height":1,
+    "sprite":{"assetSource":"builtIn","assetPath":"/assets/sandwall.jpeg"},
+    "colliders":[{"x":0,"y":0,"rotation":0,"shape":{"shape":"rectangle","width":1,"height":1},"destroyBullet":false}]
+  },
+  {"objectType":"asset","id":"vwall-right","x":10000,"y":10000,"scale":1,"rotation":0,
+    "tiling":true,"width":1,"height":1,
+    "sprite":{"assetSource":"builtIn","assetPath":"/assets/sandwall.jpeg"},
+    "colliders":[{"x":0,"y":0,"rotation":0,"shape":{"shape":"rectangle","width":1,"height":1},"destroyBullet":false}]
+  },
+
+  {"objectType":"asset","id":"box-a","x":-600,"y":-200,"scale":1,"rotation":0,
+    "tiling":false,"width":220,"height":220,
+    "sprite":{"assetSource":"builtIn","assetPath":"/assets/editor/box.jpg"},
+    "colliders":[{"x":0,"y":0,"rotation":0,"shape":{"shape":"rectangle","width":220,"height":220},"destroyBullet":true}]
+  },
+  {"objectType":"asset","id":"box-b","x":0,"y":-320,"scale":1,"rotation":0,
+    "tiling":false,"width":220,"height":220,
+    "sprite":{"assetSource":"builtIn","assetPath":"/assets/editor/box.jpg"},
+    "colliders":[{"x":0,"y":0,"rotation":0,"shape":{"shape":"rectangle","width":220,"height":220},"destroyBullet":true}]
+  },
+  {"objectType":"asset","id":"box-c","x":700,"y":-260,"scale":1,"rotation":0,
+    "tiling":false,"width":220,"height":220,
+    "sprite":{"assetSource":"builtIn","assetPath":"/assets/editor/box.jpg"},
+    "colliders":[{"x":0,"y":0,"rotation":0,"shape":{"shape":"rectangle","width":220,"height":220},"destroyBullet":true}]
+  },
+  {"objectType":"asset","id":"box-d","x":-800,"y":360,"scale":1,"rotation":0,
+    "tiling":false,"width":220,"height":220,
+    "sprite":{"assetSource":"builtIn","assetPath":"/assets/editor/box.jpg"},
+    "colliders":[{"x":0,"y":0,"rotation":0,"shape":{"shape":"rectangle","width":220,"height":220},"destroyBullet":true}]
+  },
+  {"objectType":"asset","id":"box-e","x":0,"y":360,"scale":1,"rotation":0,
+    "tiling":false,"width":220,"height":220,
+    "sprite":{"assetSource":"builtIn","assetPath":"/assets/editor/box.jpg"},
+    "colliders":[{"x":0,"y":0,"rotation":0,"shape":{"shape":"rectangle","width":220,"height":220},"destroyBullet":true}]
+  },
+  {"objectType":"asset","id":"box-f","x":800,"y":360,"scale":1,"rotation":0,
+    "tiling":false,"width":220,"height":220,
+    "sprite":{"assetSource":"builtIn","assetPath":"/assets/editor/box.jpg"},
+    "colliders":[{"x":0,"y":0,"rotation":0,"shape":{"shape":"rectangle","width":220,"height":220},"destroyBullet":true}]
+  },
+  {"objectType":"asset","id":"diag-1","x":10000,"y":10000,"scale":1,"rotation":0,
+    "tiling":true,"width":1,"height":1,
+    "sprite":{"assetSource":"builtIn","assetPath":"/assets/sandwall.jpeg"},
+    "colliders":[{"x":0,"y":0,"rotation":0,"shape":{"shape":"rectangle","width":1,"height":1},"destroyBullet":false}]
+  },
+  {"objectType":"asset","id":"diag-2","x":10000,"y":10000,"scale":1,"rotation":0,
+    "tiling":true,"width":1,"height":1,
+    "sprite":{"assetSource":"builtIn","assetPath":"/assets/sandwall.jpeg"},
+    "colliders":[{"x":0,"y":0,"rotation":0,"shape":{"shape":"rectangle","width":1,"height":1},"destroyBullet":false}]
+  },
+  {"objectType":"asset","id":"maze-h1-left","x":10000,"y":10000,"scale":1,"rotation":0,
+    "tiling":true,"width":1,"height":1,
+    "sprite":{"assetSource":"builtIn","assetPath":"/assets/sandwall.jpeg"},
+    "colliders":[{"x":0,"y":0,"rotation":0,"shape":{"shape":"rectangle","width":1,"height":1},"destroyBullet":false}]
+  },
+  {"objectType":"asset","id":"maze-h1-right","x":10000,"y":10000,"scale":1,"rotation":0,
+    "tiling":true,"width":1,"height":1,
+    "sprite":{"assetSource":"builtIn","assetPath":"/assets/sandwall.jpeg"},
+    "colliders":[{"x":0,"y":0,"rotation":0,"shape":{"shape":"rectangle","width":1,"height":1},"destroyBullet":false}]
+  },
+  {"objectType":"asset","id":"maze-h2-left","x":10000,"y":10000,"scale":1,"rotation":0,
+    "tiling":true,"width":1,"height":1,
+    "sprite":{"assetSource":"builtIn","assetPath":"/assets/sandwall.jpeg"},
+    "colliders":[{"x":0,"y":0,"rotation":0,"shape":{"shape":"rectangle","width":1,"height":1},"destroyBullet":false}]
+  },
+  {"objectType":"asset","id":"maze-h2-right","x":10000,"y":10000,"scale":1,"rotation":0,
+    "tiling":true,"width":1,"height":1,
+    "sprite":{"assetSource":"builtIn","assetPath":"/assets/sandwall.jpeg"},
+    "colliders":[{"x":0,"y":0,"rotation":0,"shape":{"shape":"rectangle","width":1,"height":1},"destroyBullet":false}]
+  },
+  {"objectType":"asset","id":"maze-v1-top","x":10000,"y":10000,"scale":1,"rotation":0,
+    "tiling":true,"width":1,"height":1,
+    "sprite":{"assetSource":"builtIn","assetPath":"/assets/sandwall.jpeg"},
+    "colliders":[{"x":0,"y":0,"rotation":0,"shape":{"shape":"rectangle","width":1,"height":1},"destroyBullet":false}]
+  },
+  {"objectType":"asset","id":"maze-v1-bottom","x":10000,"y":10000,"scale":1,"rotation":0,
+    "tiling":true,"width":1,"height":1,
+    "sprite":{"assetSource":"builtIn","assetPath":"/assets/sandwall.jpeg"},
+    "colliders":[{"x":0,"y":0,"rotation":0,"shape":{"shape":"rectangle","width":1,"height":1},"destroyBullet":false}]
+  },
+  {"objectType":"asset","id":"maze-v2-top","x":10000,"y":10000,"scale":1,"rotation":0,
+    "tiling":true,"width":1,"height":1,
+    "sprite":{"assetSource":"builtIn","assetPath":"/assets/sandwall.jpeg"},
+    "colliders":[{"x":0,"y":0,"rotation":0,"shape":{"shape":"rectangle","width":1,"height":1},"destroyBullet":false}]
+  },
+  {"objectType":"asset","id":"maze-v2-bottom","x":10000,"y":10000,"scale":1,"rotation":0,
+    "tiling":true,"width":1,"height":1,
+    "sprite":{"assetSource":"BuiltIn","assetPath":"/assets/sandwall.jpeg"},
+    "colliders":[{"x":0,"y":0,"rotation":0,"shape":{"shape":"rectangle","width":1,"height":1},"destroyBullet":false}]
+  },
+  {"objectType":"asset","id":"tree-1","x":-950,"y":-450,"scale":1,"rotation":0,
+    "tiling":false,"width":180,"height":220,
+    "sprite":{"assetSource":"builtIn","assetPath":"/assets/editor/tree1.png"},
+    "colliders":[{"x":0,"y":30,"rotation":0,"shape":{"shape":"rectangle","width":120,"height":120},"destroyBullet":true}]
+  },
+  {"objectType":"asset","id":"tree-2","x":950,"y":-420,"scale":1,"rotation":0,
+    "tiling":false,"width":190,"height":230,
+    "sprite":{"assetSource":"builtIn","assetPath":"/assets/editor/tree2.png"},
+    "colliders":[{"x":0,"y":30,"rotation":0,"shape":{"shape":"rectangle","width":120,"height":120},"destroyBullet":true}]
+  },
+  {"objectType":"asset","id":"chair-1","x":-300,"y":-350,"scale":1,"rotation":0.5,
+    "tiling":false,"width":80,"height":80,
+    "sprite":{"assetSource":"builtIn","assetPath":"/assets/editor/chair.png"},
+    "colliders":[{"x":0,"y":0,"rotation":0.5,"shape":{"shape":"rectangle","width":60,"height":60},"destroyBullet":false}]
+  },
+  {"objectType":"asset","id":"box1-1","x":-1000,"y":200,"scale":1,"rotation":0,
+    "tiling":false,"width":200,"height":200,
+    "sprite":{"assetSource":"builtIn","assetPath":"/assets/editor/box1.jpg"},
+    "colliders":[{"x":0,"y":0,"rotation":0,"shape":{"shape":"rectangle","width":200,"height":200},"destroyBullet":true}]
+  },
+  {"objectType":"asset","id":"box2-1","x":1000,"y":260,"scale":1,"rotation":0,
+    "tiling":false,"width":200,"height":200,
+    "sprite":{"assetSource":"builtIn","assetPath":"/assets/editor/box2.png"},
+    "colliders":[{"x":0,"y":0,"rotation":0,"shape":{"shape":"rectangle","width":200,"height":200},"destroyBullet":true}]
+  },
+  {"objectType":"asset","id":"wall2-a","x":-200,"y":500,"scale":1,"rotation":0,
+    "tiling":true,"width":1200,"height":50,
+    "sprite":{"assetSource":"builtIn","assetPath":"/assets/editor/wall2.png"},
+    "colliders":[{"x":0,"y":0,"rotation":0,"shape":{"shape":"rectangle","width":1200,"height":50},"destroyBullet":true}]
+  },
+  {"objectType":"asset","id":"wall2-b","x":600,"y":-520,"scale":1,"rotation":0.15,
+    "tiling":true,"width":900,"height":50,
+    "sprite":{"assetSource":"builtIn","assetPath":"/assets/editor/wall2.png"},
+    "colliders":[{"x":0,"y":0,"rotation":0.15,"shape":{"shape":"rectangle","width":900,"height":50},"destroyBullet":true}]
+  },
+  {"objectType":"asset","id":"wall3-a","x":-600,"y":-520,"scale":1,"rotation":-0.2,
+    "tiling":true,"width":900,"height":50,
+    "sprite":{"assetSource":"builtIn","assetPath":"/assets/editor/wall3.png"},
+    "colliders":[{"x":0,"y":0,"rotation":-0.2,"shape":{"shape":"rectangle","width":900,"height":50},"destroyBullet":true}]
+  },
+  {"objectType":"asset","id":"roof1-a","x":-800,"y":100,"scale":1,"rotation":0,
+    "tiling":false,"width":400,"height":300,
+    "sprite":{"assetSource":"builtIn","assetPath":"/assets/editor/roof1.png"},
+    "colliders":[{"x":0,"y":40,"rotation":0,"shape":{"shape":"rectangle","width":360,"height":220},"destroyBullet":true}]
+  },
+  {"objectType":"asset","id":"roof2-a","x":800,"y":-100,"scale":1,"rotation":0,
+    "tiling":false,"width":380,"height":280,
+    "sprite":{"assetSource":"builtIn","assetPath":"/assets/editor/roff2.png"},
+    "colliders":[{"x":0,"y":40,"rotation":0,"shape":{"shape":"rectangle","width":340,"height":200},"destroyBullet":true}]
+  }
+]}', true, true, NOW(), NOW(), 'user1'),
+
+-- Secondary large layout (emptier arena you can extend later)
+('map2', 'Open Field', '{"objects":[
+  {"objectType":"spawnPoint","id":"sp-player","spawns":"player","x":-200,"y":0,"scale":1,"rotation":0},
+  {"objectType":"spawnPoint","id":"sp-z","spawns":"zombie","x":200,"y":0,"scale":1,"rotation":0},
+  {"objectType":"asset","id":"center-wall","x":0,"y":0,"scale":1,"rotation":0,
+    "tiling":true,"width":1600,"height":40,
+    "sprite":{"assetSource":"builtIn","assetPath":"/assets/sandwall.jpeg"},
+    "colliders":[{"x":0,"y":0,"rotation":0,"shape":{"shape":"rectangle","width":1600,"height":40},"destroyBullet":true}]
+  }
+]}' , true, true, NOW(), NOW(), 'user1'),
+
+-- Community sample (empty but valid structure)
+('map3', 'Community Blank', '{"objects":[]}', false, false, NOW(), NOW(), 'user2');
 
 -- Insert PlayedGames
 INSERT INTO played_games (id, map_id, created_at, highest_wave_survived) VALUES

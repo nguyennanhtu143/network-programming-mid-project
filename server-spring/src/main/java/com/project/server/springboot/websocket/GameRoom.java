@@ -22,6 +22,9 @@ public class GameRoom {
     
     // Track players in room
     private Set<String> playerSessions = ConcurrentHashMap.newKeySet();
+
+    // Simple counters
+    private int highestBulletId = 0;
     
     public GameRoom(String id) {
         this.id = id;
@@ -184,11 +187,90 @@ public class GameRoom {
         // etc.
         
         switch (type) {
-            case "finishedLoading":
-                // Handle player finished loading
+            case "finishedLoading": {
+                // FE uses this only as readiness signal; nothing to change here for now
                 break;
-            default:
+            }
+            case "shoot": {
+                // Expect: { originX, originY, rotation, speed, damage, pierces, knockBack }
+                @SuppressWarnings("unchecked")
+                java.util.List<Map<String, Object>> bullets = (java.util.List<Map<String, Object>>) state.get("bullets");
+                if (bullets == null) {
+                    bullets = new java.util.ArrayList<>();
+                    state.put("bullets", bullets);
+                }
+                Map<String, Object> bullet = new ConcurrentHashMap<>();
+                if (data instanceof Map<?, ?>) {
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> md = (Map<String, Object>) data;
+                    bullet.put("originX", md.getOrDefault("originX", Integer.valueOf(0)));
+                    bullet.put("originY", md.getOrDefault("originY", Integer.valueOf(0)));
+                    bullet.put("rotation", md.getOrDefault("rotation", Integer.valueOf(0)));
+                    bullet.put("speed", md.getOrDefault("speed", Integer.valueOf(10)));
+                    bullet.put("damage", md.getOrDefault("damage", Integer.valueOf(1)));
+                    // keep piercesLeft like node version
+                    Object p = md.getOrDefault("pierces", Integer.valueOf(1));
+                    bullet.put("piercesLeft", (p instanceof Number) ? p : Integer.valueOf(1));
+                    bullet.put("knockBack", md.getOrDefault("knockBack", Integer.valueOf(1)));
+                }
+                bullet.put("playerId", sessionId);
+                bullet.put("id", ++highestBulletId);
+                bullets.add(bullet);
+                break;
+            }
+            case "destroyBullet": {
+                // Expect: bullet id number
+                if (data instanceof Number n) {
+                    int idToRemove = n.intValue();
+                    @SuppressWarnings("unchecked")
+                    java.util.List<Map<String, Object>> bullets = (java.util.List<Map<String, Object>>) state.get("bullets");
+                    if (bullets != null) {
+                        bullets.removeIf(b -> {
+                            Object bid = b.get("id");
+                            return (bid instanceof Number) && ((Number) bid).intValue() == idToRemove;
+                        });
+                    }
+                }
+                break;
+            }
+            case "move": {
+                // Expect: { x, y, rotation, velocityX, velocityY, currentAnimation }
+                @SuppressWarnings("unchecked")
+                Map<String, Object> players = (Map<String, Object>) state.get("players");
+                if (players == null) {
+                    log.warn("Players map is null in room {}", id);
+                    break;
+                }
+                @SuppressWarnings("unchecked")
+                Map<String, Object> player = (Map<String, Object>) players.get(sessionId);
+                if (player == null) {
+                    log.warn("Player {} not found in room {}", sessionId, id);
+                    break;
+                }
+                if (data instanceof Map<?, ?>) {
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> md = (Map<String, Object>) data;
+                    Object ox = md.get("x");
+                    Object oy = md.get("y");
+                    Object orot = md.get("rotation");
+                    Object ovx = md.get("velocityX");
+                    Object ovy = md.get("velocityY");
+                    Object oanim = md.get("currentAnimation");
+                    if (ox instanceof Number) player.put("x", ox);
+                    if (oy instanceof Number) player.put("y", oy);
+                    if (orot instanceof Number) player.put("rotation", orot);
+                    if (ovx instanceof Number) player.put("velocityX", ovx);
+                    if (ovy instanceof Number) player.put("velocityY", ovy);
+                    if (oanim != null) player.put("currentAnimation", oanim);
+                    log.debug("Updated player {} position: x={}, y={}, rotation={}", sessionId, ox, oy, orot);
+                } else {
+                    log.warn("Move data is not a Map: {}", data);
+                }
+                break;
+            }
+            default: {
                 log.warn("Unknown message type: {}", type);
+            }
         }
     }
     

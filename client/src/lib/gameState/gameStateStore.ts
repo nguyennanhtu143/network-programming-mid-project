@@ -11,11 +11,60 @@ interface GameStateStore {
 export const useGameStateStore = create<GameStateStore>((set) => ({
   gameState: null,
   setState: (state) => {
-    // Convert Map from JSON if needed
-    if (state.players && !(state.players instanceof Map)) {
-      state.players = new Map(Object.entries(state.players));
-    }
-    set({ gameState: state });
+    set((prev) => {
+      // Merge instead of replace to preserve references and reduce jitter
+      if (!prev.gameState) {
+        // First time: convert and set
+        if (state.players && !(state.players instanceof Map)) {
+          state.players = new Map(Object.entries(state.players));
+        }
+        return { gameState: state };
+      }
+      
+      // Merge: preserve existing Map references where possible
+      const existing = prev.gameState;
+      const newState = { ...existing };
+      
+      // Merge players Map: update existing entries, keep references
+      if (state.players) {
+        const newPlayers = state.players instanceof Map 
+          ? state.players 
+          : new Map(Object.entries(state.players));
+        
+        // If we have existing players Map, merge into it to preserve references
+        if (existing.players instanceof Map) {
+          // Update existing entries
+          for (const [id, player] of newPlayers.entries()) {
+            const existingPlayer = existing.players.get(id);
+            if (existingPlayer) {
+              // Merge player data to preserve reference
+              Object.assign(existingPlayer, player);
+            } else {
+              existing.players.set(id, player);
+            }
+          }
+          // Remove players that no longer exist
+          for (const id of existing.players.keys()) {
+            if (!newPlayers.has(id)) {
+              existing.players.delete(id);
+            }
+          }
+          newState.players = existing.players; // Keep reference
+        } else {
+          newState.players = newPlayers;
+        }
+      }
+      
+      // Merge other fields
+      if (state.zombies) newState.zombies = state.zombies;
+      if (state.bullets) newState.bullets = state.bullets;
+      if (state.waveInfo) newState.waveInfo = { ...existing.waveInfo, ...state.waveInfo };
+      if (state.mapId) newState.mapId = state.mapId;
+      if (state.gameTick !== undefined) newState.gameTick = state.gameTick;
+      if (state.isGameOver !== undefined) newState.isGameOver = state.isGameOver;
+      
+      return { gameState: newState };
+    });
   },
   updateState: (updates) =>
     set((prev) => {

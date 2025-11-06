@@ -11,7 +11,7 @@ import { PlayerSelf } from "./PlayerSelf";
 import Matter, { Body } from "matter-js";
 import { useBodyRef } from "../../lib/physics/hooks";
 import { SpectateControls } from "./SpectateControls";
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useRoomMessageHandler, useSelf } from "../../lib/networking/hooks";
 import { playSelfDied } from "../../lib/sound/sound";
 import { Texture } from "pixi.js";
@@ -84,12 +84,61 @@ function PlayerGrave({ x, y }: { x: number; y: number }) {
 }
 
 function OtherAlivePlayer({ player }: { player: PlayerState }) {
-  const x = useLerped(player.x, 0.5);
-  const y = useLerped(player.y, 0.5);
-  const rotation = useLerpedRadian(player.rotation, 0.5);
+  // Client-side prediction: calculate position from velocity only (like OtherBullet)
+  const [x, setX] = useState(player.x);
+  const [y, setY] = useState(player.y);
+  const [rotation, setRotation] = useState(player.rotation);
+  
+  // Track if we've initialized from server position
+  const initializedRef = useRef(false);
+  const lastVelocityRef = useRef({ vx: 0, vy: 0 });
+  
+  // Initialize position only once when player first appears or velocity changes significantly
+  useEffect(() => {
+    const vx = player.velocityX || 0;
+    const vy = player.velocityY || 0;
+    const lastVel = lastVelocityRef.current;
+    
+    // If velocity changed significantly (player started/stopped moving), re-initialize position
+    const velChange = Math.abs(vx - lastVel.vx) + Math.abs(vy - lastVel.vy);
+    if (!initializedRef.current || velChange > 50) {
+      setX(player.x);
+      setY(player.y);
+      setRotation(player.rotation);
+      initializedRef.current = true;
+      lastVelocityRef.current = { vx, vy };
+    }
+  }, [player.x, player.y, player.rotation, player.velocityX, player.velocityY]);
+  
   const collider = useBodyRef(() => {
     return Matter.Bodies.circle(player.x, player.y, 40);
   });
+  
+  // Calculate position from velocity each frame (pure client-side prediction, no server sync)
+  useTick((delta) => {
+    if (!initializedRef.current) return;
+    
+    // Use velocity from server to predict movement
+    const vx = player.velocityX || 0;
+    const vy = player.velocityY || 0;
+    
+    // Update position based on velocity (delta is in seconds, typically ~0.016 for 60fps)
+    setX((prevX) => prevX + vx * delta);
+    setY((prevY) => prevY + vy * delta);
+    
+    // Smooth rotation towards server rotation
+    setRotation((prevRot) => {
+      const targetRot = player.rotation;
+      let diff = targetRot - prevRot;
+      // Normalize angle difference to [-PI, PI]
+      while (diff > Math.PI) diff -= 2 * Math.PI;
+      while (diff < -Math.PI) diff += 2 * Math.PI;
+      // Lerp rotation
+      return prevRot + diff * 0.3;
+    });
+  });
+  
+  // Update collider position
   useTick(() => {
     Body.setPosition(collider.current, {
       x,

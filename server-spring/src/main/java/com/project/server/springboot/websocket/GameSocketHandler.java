@@ -18,6 +18,11 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
 
 /**
  * WebSocket handler for game rooms
@@ -37,6 +42,10 @@ public class GameSocketHandler {
     
     // Track client to room mapping
     private final Map<String, String> clientToRoom = new ConcurrentHashMap<>();
+    
+    // Game tick scheduler per room
+    private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
+    private final ConcurrentMap<String, ScheduledFuture<?>> roomTickers = new ConcurrentHashMap<>();
     
     @PostConstruct
     public void start() {
@@ -78,6 +87,11 @@ public class GameSocketHandler {
                 // If room is empty, remove it (optional - you might want to keep it for a while)
                 if (room.getPlayerCount() == 0) {
                     rooms.remove(roomId);
+                    // stop ticker
+                    try {
+                        java.util.concurrent.ScheduledFuture<?> f = roomTickers.remove(roomId);
+                        if (f != null) f.cancel(true);
+                    } catch (Exception ignored) {}
                     log.info("Removed empty room: {}", roomId);
                 } else {
                     // Broadcast state update to remaining players
@@ -195,6 +209,25 @@ public class GameSocketHandler {
                     
                     room.initialize(quickPlayOptions);
                     rooms.put(roomId, room);
+                    // start game tick for this room
+                    try {
+                        room.getState().put("gameTick", 0);
+                        final GameRoom roomRef = room;
+                        final String rid = roomId;
+                        ScheduledFuture<?> tick = scheduler.scheduleAtFixedRate(() -> {
+                            try {
+                                Map<String, Object> st = roomRef.getState();
+                                int t = ((Number) st.getOrDefault("gameTick", 0)).intValue() + 1;
+                                st.put("gameTick", t);
+                                socketIOServer.getRoomOperations(rid).sendEvent("gameTick", t);
+                                // Broadcast state update at tick rate for smooth sync
+                                socketIOServer.getRoomOperations(rid).sendEvent("stateUpdate", st);
+                            } catch (Exception ignored) {}
+                        }, 0, 50, java.util.concurrent.TimeUnit.MILLISECONDS);
+                        roomTickers.put(rid, tick);
+                    } catch (Exception e) {
+                        log.warn("Failed to start tick for room {}: {}", roomId, e.getMessage());
+                    }
                     
                     log.info("Client {} created new quick play room {}", sessionId, roomId);
                 }
@@ -215,6 +248,25 @@ public class GameSocketHandler {
                 }
                 
                 rooms.put(roomId, room);
+                // start game tick for this room (regular create)
+                try {
+                    room.getState().put("gameTick", 0);
+                    final GameRoom roomRef = room;
+                    final String rid = roomId;
+                    ScheduledFuture<?> tick = scheduler.scheduleAtFixedRate(() -> {
+                        try {
+                            Map<String, Object> st = roomRef.getState();
+                            int t = ((Number) st.getOrDefault("gameTick", 0)).intValue() + 1;
+                            st.put("gameTick", t);
+                            socketIOServer.getRoomOperations(rid).sendEvent("gameTick", t);
+                            // Broadcast state update at tick rate for smooth sync
+                            socketIOServer.getRoomOperations(rid).sendEvent("stateUpdate", st);
+                        } catch (Exception ignored) {}
+                    }, 0, 50, java.util.concurrent.TimeUnit.MILLISECONDS);
+                    roomTickers.put(rid, tick);
+                } catch (Exception e) {
+                    log.warn("Failed to start tick for room {}: {}", roomId, e.getMessage());
+                }
                 log.info("Client {} creating room {}", sessionId, roomId);
             }
             
@@ -457,26 +509,37 @@ public class GameSocketHandler {
                     }
                     // send requestSpawn to this client
                     client.sendEvent("requestSpawn");
-                    // if game not started, start wave 1
+                    // Start when enough players are ready
                     if ("waiting".equals(room.getState().get("gameState"))) {
-                        @SuppressWarnings("unchecked")
-                        Map<String, Object> waveInfo = (Map<String, Object>) room.getState().get("waveInfo");
-                        if (waveInfo == null) {
-                            waveInfo = new java.util.concurrent.ConcurrentHashMap<>();
-                            waveInfo.put("currentWaveNumber", 0);
-                            waveInfo.put("active", false);
-                            waveInfo.put("nextWaveStartsInSec", 0);
-                            waveInfo.put("totalZombies", 0);
-                            waveInfo.put("zombiesLeft", 0);
-                            room.getState().put("waveInfo", waveInfo);
+                        int required = room.getRequiredPlayerCount() > 0 ? room.getRequiredPlayerCount() : 2;
+                        long readyCount = 0;
+                        if (players != null) {
+                            for (Object po : players.values()) {
+                                if (po instanceof Map<?, ?> pm) {
+                                    Object fl = pm.get("finishedLoading");
+                                    if (fl instanceof Boolean b && b) readyCount++;
+                                }
+                            }
                         }
-                        waveInfo.put("currentWaveNumber", 1);
-                        waveInfo.put("active", true);
-                        waveInfo.put("totalZombies", 10);
-                        waveInfo.put("zombiesLeft", 10);
-                        room.getState().put("gameState", "playing");
-                        // notify FE
-                        socketIOServer.getRoomOperations(roomId).sendEvent("waveStart", java.util.Map.of("wave", 1));
+                        if (readyCount >= required) {
+                            @SuppressWarnings("unchecked")
+                            Map<String, Object> waveInfo = (Map<String, Object>) room.getState().get("waveInfo");
+                            if (waveInfo == null) {
+                                waveInfo = new java.util.concurrent.ConcurrentHashMap<>();
+                                waveInfo.put("currentWaveNumber", 0);
+                                waveInfo.put("active", false);
+                                waveInfo.put("nextWaveStartsInSec", 0);
+                                waveInfo.put("totalZombies", 0);
+                                waveInfo.put("zombiesLeft", 0);
+                                room.getState().put("waveInfo", waveInfo);
+                            }
+                            waveInfo.put("currentWaveNumber", 1);
+                            waveInfo.put("active", true);
+                            waveInfo.put("totalZombies", 10);
+                            waveInfo.put("zombiesLeft", 10);
+                            room.getState().put("gameState", "playing");
+                            socketIOServer.getRoomOperations(roomId).sendEvent("waveStart", java.util.Map.of("wave", 1));
+                        }
                     }
                 } else if ("spawnSelf".equals(type)) {
                     // Client chose a spawn point; set player position and mark alive
@@ -501,12 +564,20 @@ public class GameSocketHandler {
                             player.put("health", 100);
                         }
                     }
+                } else if ("shotSound".equals(type)) {
+                    // Broadcast shot sound fx to clients in room
+                    socketIOServer.getRoomOperations(roomId).sendEvent("shotSound", data);
+                } else if ("move".equals(type)) {
+                    // Only update state; stateUpdate will be sent at tick to avoid jitter
+                    log.debug("Routing message type '{}' to room.handleMessage()", type);
+                    room.handleMessage(type, data, client.getSessionId().toString());
                 } else {
                     // Process other messages in room logic
+                    log.debug("Routing message type '{}' to room.handleMessage()", type);
                     room.handleMessage(type, data, client.getSessionId().toString());
                 }
-                // Broadcast updated state to all clients in room
-                socketIOServer.getRoomOperations(roomId).sendEvent("stateUpdate", room.getState());
+                // State updates are now broadcast at tick rate (20Hz) for smooth sync
+                // Only broadcast immediately for critical state changes (handled above)
             }
         }
     }
