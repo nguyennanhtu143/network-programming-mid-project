@@ -7,10 +7,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
-/**
- * Game room state (in-memory)
- * Implement your game logic here
- */
 @Slf4j
 @Data
 public class GameRoom {
@@ -35,7 +31,7 @@ public class GameRoom {
         this.state.put("players", new ConcurrentHashMap<>());
         this.state.put("zombies", new ConcurrentHashMap<>());
         this.state.put("bullets", new ConcurrentHashMap<>());
-        this.state.put("mapId", null);
+        this.state.put("mapId", "map1");
         this.state.put("wave", 0);
         this.state.put("gameState", "waiting"); // waiting, playing, ended
         
