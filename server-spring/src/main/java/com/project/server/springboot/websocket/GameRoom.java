@@ -29,11 +29,19 @@ public class GameRoom {
         
         // Initialize game state structure
         this.state.put("players", new ConcurrentHashMap<>());
-        this.state.put("zombies", new ConcurrentHashMap<>());
-        this.state.put("bullets", new ConcurrentHashMap<>());
+        // FE mong đợi mảng: zombies[], bullets[]
+        this.state.put("zombies", new java.util.ArrayList<>());
+        this.state.put("bullets", new java.util.ArrayList<>());
         this.state.put("mapId", "map1");
-        this.state.put("wave", 0);
         this.state.put("gameState", "waiting"); // waiting, playing, ended
+        // Wave info structure expected by FE
+        Map<String, Object> waveInfo = new ConcurrentHashMap<>();
+        waveInfo.put("currentWaveNumber", 0);
+        waveInfo.put("active", false);
+        waveInfo.put("nextWaveStartsInSec", 0);
+        waveInfo.put("totalZombies", 0);
+        waveInfo.put("zombiesLeft", 0);
+        this.state.put("waveInfo", waveInfo);
         
         // Default configuration
         this.isPrivate = false;
@@ -82,21 +90,35 @@ public class GameRoom {
         Map<String, Object> players = (Map<String, Object>) state.get("players");
         Map<String, Object> playerState = new ConcurrentHashMap<>();
         playerState.put("sessionId", sessionId);
-        playerState.put("name", playerName != null && !playerName.isEmpty() 
-            ? playerName 
-            : "Player " + sessionId.substring(0, Math.min(4, sessionId.length())));
+        playerState.put("name", playerName != null && !playerName.isEmpty()
+                ? playerName
+                : "Player " + sessionId.substring(0, Math.min(4, sessionId.length())));
         playerState.put("playerClass", playerClass != null ? playerClass : "pistol");
         playerState.put("x", (int) Math.floor(Math.random() * 800));
         playerState.put("y", (int) Math.floor(Math.random() * 600));
-        playerState.put("health", 100);
         playerState.put("rotation", 0.0);
+        playerState.put("connected", true);
         playerState.put("velocityX", 0.0);
         playerState.put("velocityY", 0.0);
-        playerState.put("finishedLoading", false);
-        playerState.put("damageDealt", 0);
+        playerState.put("health", 100);
+        // 2 = NOT_SPAWNED (client constants)
+        playerState.put("healthState", 2);
+        playerState.put("skillPoints", 0);
+        Map<String, Object> upgrades = new ConcurrentHashMap<>();
+        upgrades.put("fireRate", 0);
+        upgrades.put("damage", 0);
+        upgrades.put("pierce", 0);
+        upgrades.put("health", 0);
+        upgrades.put("speed", 0);
+        upgrades.put("scope", 0);
+        playerState.put("upgrades", upgrades);
         playerState.put("kills", 0);
         playerState.put("deaths", 0);
-        playerState.put("score", 0);
+        playerState.put("damageDealt", 0);
+        playerState.put("wavesSurvived", 0);
+        playerState.put("accuracy", 0);
+        playerState.put("currentAnimation", 0);
+        playerState.put("finishedLoading", false);
         
         players.put(sessionId, playerState);
         

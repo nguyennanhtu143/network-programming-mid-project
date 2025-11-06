@@ -1,5 +1,9 @@
 import { twMerge } from "tailwind-merge";
-import { calculateScore } from "../../../../server/src/game/player";
+// Local safe score calculator (tránh phụ thuộc server-side)
+function calcScoreLocal(p: any) {
+  const n = (v: any) => (Number.isFinite(Number(v)) ? Number(v) : 0);
+  return n(p.kills) * 10 + Math.floor(n(p.damageDealt) / 5) + n(p.wavesSurvived) * 50 - n(p.deaths) * 20;
+}
 import { useGameStateSelector } from "../../lib/gameState/gameStateStore";
 import { useUIStore } from "./uiStore";
 import { useIsKeyDown } from "../../lib/useControls";
@@ -36,20 +40,28 @@ export function LeaderBoard({ gameOver }: { gameOver: boolean }) {
           <tbody>
             {players &&
               Array.from(players.values())
-                .map((player) => ({
+                .map((player: any) => ({
                   ...player,
-                  score: calculateScore(player),
+                  kills: Number.isFinite(Number(player?.kills)) ? Number(player.kills) : 0,
+                  deaths: Number.isFinite(Number(player?.deaths)) ? Number(player.deaths) : 0,
+                  accuracy: Number.isFinite(Number(player?.accuracy)) ? Number(player.accuracy) : 0,
+                  wavesSurvived: Number.isFinite(Number(player?.wavesSurvived)) ? Number(player.wavesSurvived) : 0,
+                  damageDealt: Number.isFinite(Number(player?.damageDealt)) ? Number(player.damageDealt) : 0,
+                }))
+                .map((player: any) => ({
+                  ...player,
+                  score: calcScoreLocal(player),
                 }))
                 .sort((a, b) => b.score - a.score)
                 .map((player) => (
                   <tr key={player.sessionId} className="last:border-0">
                     <td className="uppercase">{player.name}</td>
-                    <td>{player.kills}</td>
-                    <td>{player.deaths}</td>
-                    <td>{player.accuracy}</td>
-                    <td>{player.wavesSurvived}</td>
-                    <td>{player.damageDealt}</td>
-                    <td>{player.score}</td>
+                    <td>{String(player.kills)}</td>
+                    <td>{String(player.deaths)}</td>
+                    <td>{String(player.accuracy)}</td>
+                    <td>{String(player.wavesSurvived)}</td>
+                    <td>{String(player.damageDealt)}</td>
+                    <td>{String(player.score)}</td>
                   </tr>
                 ))}
           </tbody>

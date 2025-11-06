@@ -12,6 +12,7 @@ import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import java.util.List;
 import java.util.Map;
@@ -29,6 +30,7 @@ public class GameSocketHandler {
 
     private final SocketIOServer socketIOServer;
     private final MapRepository mapRepository;
+    private final ObjectMapper json = new ObjectMapper();
     
     // Store room state in memory
     private final Map<String, GameRoom> rooms = new ConcurrentHashMap<>();
@@ -138,6 +140,9 @@ public class GameSocketHandler {
         response.put("success", true);
         
         client.sendEvent("roomJoined", response);
+
+        // Also send map data via WS so client doesn't need HTTP fetch
+        trySendMapDataToClient(client, room.getMapId());
         
         // Broadcast state update to all players in room
         socketIOServer.getRoomOperations(roomId).sendEvent("stateUpdate", room.getState());
@@ -183,6 +188,9 @@ public class GameSocketHandler {
                     String mapId = selectRandomVerifiedMap();
                     if (mapId != null) {
                         quickPlayOptions.put("mapId", mapId);
+                    } else {
+                        // Fallback to built-in default map id
+                        quickPlayOptions.put("mapId", "map1");
                     }
                     
                     room.initialize(quickPlayOptions);
@@ -199,10 +207,11 @@ public class GameSocketHandler {
                 // If no mapId specified, select random verified map
                 if (room.getMapId() == null || room.getMapId().isEmpty()) {
                     String mapId = selectRandomVerifiedMap();
-                    if (mapId != null) {
-                        room.setMapId(mapId);
-                        room.getState().put("mapId", mapId);
+                    if (mapId == null || mapId.isEmpty()) {
+                        mapId = "map1"; // fallback
                     }
+                    room.setMapId(mapId);
+                    room.getState().put("mapId", mapId);
                 }
                 
                 rooms.put(roomId, room);
@@ -252,6 +261,9 @@ public class GameSocketHandler {
             
             // Broadcast state update to all players in room
             socketIOServer.getRoomOperations(roomId).sendEvent("stateUpdate", room.getState());
+
+            // Also send map data via WS so client doesn't need HTTP fetch
+            trySendMapDataToClient(client, room.getMapId());
         
         } catch (Exception e) {
             log.error("Error in onCreateRoom for client {}: ", sessionId, e);
@@ -301,6 +313,99 @@ public class GameSocketHandler {
         }
     }
 
+    /**
+     * Try to load map from repository and send to the client over WS
+     * Event name: "mapData"
+     * Payload: { id, name, level }
+     */
+    private void trySendMapDataToClient(SocketIOClient client, String mapId) {
+        try {
+            String effectiveMapId = (mapId == null || mapId.isEmpty()) ? "map1" : mapId;
+            var opt = mapRepository.findById(effectiveMapId);
+            Map<String, Object> payload = new ConcurrentHashMap<>();
+            if (opt.isPresent()) {
+                var map = opt.get();
+                payload.put("id", map.getId());
+                payload.put("name", map.getName());
+                Object level = map.getLevel();
+                // Nếu DB lưu JSON dạng chuỗi, parse sang object trước khi gửi
+                if (level instanceof String s) {
+                    try {
+                        level = json.readValue(s, java.util.Map.class);
+                    } catch (Exception ignore) {
+                        // nếu parse lỗi, vẫn gửi raw string (FE sẽ bỏ qua/đã có fallback)
+                    }
+                }
+                // Chuẩn hoá: đảm bảo có field objects[] cho FE renderer
+                if (level instanceof Map) {
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> lvl = (Map<String, Object>) level;
+                    Object objects = lvl.get("objects");
+                    if (objects == null) {
+                        java.util.List<Map<String, Object>> objList = new java.util.ArrayList<>();
+                        // chuyển spawnPoints -> objects spawnPoint player
+                        Object sps = lvl.get("spawnPoints");
+                        if (sps instanceof Iterable<?> it) {
+                            for (Object o : it) {
+                                if (o instanceof Map<?, ?> sp) {
+                                    Object ox = sp.containsKey("x") ? sp.get("x") : Integer.valueOf(400);
+                                    Object oy = sp.containsKey("y") ? sp.get("y") : Integer.valueOf(300);
+                                    Number x = (ox instanceof Number) ? (Number) ox : Integer.valueOf(400);
+                                    Number y = (oy instanceof Number) ? (Number) oy : Integer.valueOf(300);
+                                    objList.add(Map.of(
+                                            "id", "sp_p_" + x + "_" + y,
+                                            "objectType", "spawnPoint",
+                                            "spawns", "player",
+                                            "x", x,
+                                            "y", y
+                                    ));
+                                }
+                            }
+                        }
+                        // chuyển zombieSpawnPoints -> objects spawnPoint zombie
+                        Object zsps = lvl.get("zombieSpawnPoints");
+                        if (zsps instanceof Iterable<?> it2) {
+                            for (Object o : it2) {
+                                if (o instanceof Map<?, ?> sp) {
+                                    Object ox = sp.containsKey("x") ? sp.get("x") : Integer.valueOf(800);
+                                    Object oy = sp.containsKey("y") ? sp.get("y") : Integer.valueOf(300);
+                                    Number x = (ox instanceof Number) ? (Number) ox : Integer.valueOf(800);
+                                    Number y = (oy instanceof Number) ? (Number) oy : Integer.valueOf(300);
+                                    objList.add(Map.of(
+                                            "id", "sp_z_" + x + "_" + y,
+                                            "objectType", "spawnPoint",
+                                            "spawns", "zombie",
+                                            "x", x,
+                                            "y", y
+                                    ));
+                                }
+                            }
+                        }
+                        lvl.put("objects", objList);
+                        level = lvl;
+                    }
+                }
+                payload.put("level", level);
+            } else {
+                // Fallback default map (minimal valid structure)
+                payload.put("id", effectiveMapId);
+                payload.put("name", "Default Map");
+                payload.put("level", Map.of(
+                        "name", "Default",
+                        "walls", java.util.List.of(),
+                        "objects", java.util.List.of(
+                                Map.of("id", "sp1", "objectType", "spawnPoint", "spawns", "player", "x", 400, "y", 300),
+                                Map.of("id", "spz1", "objectType", "spawnPoint", "spawns", "zombie", "x", 800, "y", 300)
+                        )
+                ));
+            }
+            client.sendEvent("mapData", payload);
+						log.info("Payload sent: {}", payload);
+        } catch (Exception e) {
+            log.warn("Failed to send map data for mapId {}: {}", mapId, e.getMessage());
+        }
+    }
+
     @OnEvent("reconnect")
     public void onReconnect(SocketIOClient client, Map<String, Object> data) {
         String token = (String) data.get("token");
@@ -327,10 +432,80 @@ public class GameSocketHandler {
         if (roomId != null) {
             GameRoom room = rooms.get(roomId);
             if (room != null) {
-                // Process game message (implement your logic here)
-                room.handleMessage(type, data, client.getSessionId().toString());
-                
-                // Broadcast state update to all clients in room
+                // Special handling for messages FE depends on
+                if ("requestMap".equals(type)) {
+                    // Client explicitly requests map data again
+                    String requestedMapId = null;
+                    if (data instanceof Map<?, ?> md) {
+                        Object mid = md.get("mapId");
+                        if (mid instanceof String s) requestedMapId = s;
+                    }
+                    String toSend = (requestedMapId != null && !requestedMapId.isEmpty())
+                            ? requestedMapId
+                            : (rooms.getOrDefault(roomId, room).getMapId() != null
+                                ? rooms.getOrDefault(roomId, room).getMapId()
+                                : "map1");
+                    trySendMapDataToClient(client, toSend);
+                } else if ("finishedLoading".equals(type)) {
+                    // mark player as finishedLoading
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> players = (Map<String, Object>) room.getState().get("players");
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> player = (Map<String, Object>) players.get(client.getSessionId().toString());
+                    if (player != null) {
+                        player.put("finishedLoading", true);
+                    }
+                    // send requestSpawn to this client
+                    client.sendEvent("requestSpawn");
+                    // if game not started, start wave 1
+                    if ("waiting".equals(room.getState().get("gameState"))) {
+                        @SuppressWarnings("unchecked")
+                        Map<String, Object> waveInfo = (Map<String, Object>) room.getState().get("waveInfo");
+                        if (waveInfo == null) {
+                            waveInfo = new java.util.concurrent.ConcurrentHashMap<>();
+                            waveInfo.put("currentWaveNumber", 0);
+                            waveInfo.put("active", false);
+                            waveInfo.put("nextWaveStartsInSec", 0);
+                            waveInfo.put("totalZombies", 0);
+                            waveInfo.put("zombiesLeft", 0);
+                            room.getState().put("waveInfo", waveInfo);
+                        }
+                        waveInfo.put("currentWaveNumber", 1);
+                        waveInfo.put("active", true);
+                        waveInfo.put("totalZombies", 10);
+                        waveInfo.put("zombiesLeft", 10);
+                        room.getState().put("gameState", "playing");
+                        // notify FE
+                        socketIOServer.getRoomOperations(roomId).sendEvent("waveStart", java.util.Map.of("wave", 1));
+                    }
+                } else if ("spawnSelf".equals(type)) {
+                    // Client chose a spawn point; set player position and mark alive
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> players = (Map<String, Object>) room.getState().get("players");
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> player = (Map<String, Object>) players.get(client.getSessionId().toString());
+                    if (player != null) {
+                        Number x = 0, y = 0;
+                        if (data instanceof Map<?, ?> md) {
+                            Object ox = md.get("x");
+                            Object oy = md.get("y");
+                            x = (ox instanceof Number) ? (Number) ox : Integer.valueOf(400);
+                            y = (oy instanceof Number) ? (Number) oy : Integer.valueOf(300);
+                        }
+                        player.put("x", x);
+                        player.put("y", y);
+                        player.put("healthState", 0); // PlayerHealthState.ALIVE
+                        // make sure has non-zero health
+                        Object h = player.get("health");
+                        if (!(h instanceof Number) || ((Number) h).intValue() <= 0) {
+                            player.put("health", 100);
+                        }
+                    }
+                } else {
+                    // Process other messages in room logic
+                    room.handleMessage(type, data, client.getSessionId().toString());
+                }
+                // Broadcast updated state to all clients in room
                 socketIOServer.getRoomOperations(roomId).sendEvent("stateUpdate", room.getState());
             }
         }

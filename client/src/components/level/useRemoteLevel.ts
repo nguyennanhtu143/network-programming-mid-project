@@ -1,4 +1,4 @@
-import { useWebSocketRoom } from "../../websocket/websocketClient";
+import { useWebSocketRoom, websocketClient } from "../../websocket/websocketClient";
 import { useGameStateSelector } from "../../lib/gameState/gameStateStore";
 import { useEffect, useState } from "react";
 type GameLevel = { objects: unknown[] };
@@ -8,25 +8,28 @@ export function useRemoteLevel(mapId: string | undefined) {
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
+    // Subscribe to mapData via WebSocket (server-spring enhancement)
+    const off = websocketClient.on("mapData", (map: any) => {
+      if (!map) return;
+      setData({ level: map.level as GameLevel, id: map.id, name: map.name });
+      setLoading(false);
+    });
+
     let aborted = false;
     if (!mapId) {
       setData(null);
-      return;
+      return () => {
+        off?.();
+      };
     }
     setLoading(true);
-    fetch(`/api/maps/${mapId}`)
-      .then((r) => r.json())
-      .then((res) => {
-        if (!aborted) setData(res);
-      })
-      .catch(() => {
-        if (!aborted) setData(null);
-      })
-      .finally(() => {
-        if (!aborted) setLoading(false);
-      });
+    // Yêu cầu server gửi lại map nếu miss sự kiện mapData ban đầu
+    try {
+      websocketClient.send("requestMap", { mapId });
+    } catch (e) {}
     return () => {
       aborted = true;
+      off?.();
     };
   }, [mapId]);
 

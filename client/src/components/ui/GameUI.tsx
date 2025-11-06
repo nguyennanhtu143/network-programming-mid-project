@@ -105,7 +105,15 @@ export function SkillPointSymbol() {
 }
 
 function WaveInfo() {
-  const waveInfo = useGameStateSelector((s) => s.waveInfo);
+  // Khi chạy với Spring Boot (không Colyseus state-sync), có thể chưa có state ban đầu
+  const waveInfo =
+    useGameStateSelector((s) => s.waveInfo) ?? {
+      currentWaveNumber: 0,
+      active: false,
+      nextWaveStartsInSec: 0,
+      totalZombies: 0,
+      zombiesLeft: 0,
+    };
 
   const title =
     waveInfo?.currentWaveNumber == 0
@@ -139,8 +147,8 @@ function WaveInfo() {
       <div className="ui-text text-2xl">{title}</div>
       <progress
         className="progress progress-error w-56 mt-2"
-        value={waveInfo.zombiesLeft}
-        max={waveInfo.totalZombies}
+        value={waveInfo?.zombiesLeft ?? 0}
+        max={waveInfo?.totalZombies ?? 0}
       ></progress>
       <div className="ui-text text-lg">{subtitle}</div>
     </div>

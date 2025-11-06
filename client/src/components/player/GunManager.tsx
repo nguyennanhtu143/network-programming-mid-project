@@ -37,6 +37,19 @@ export function GunManager({
     meleeCoolDown: 0,
   });
   const self = useSelf();
+  // Tạo self an toàn để không thay đổi số lượng hooks giữa các lần render
+  const safeSelf: any = {
+    sessionId: self?.sessionId ?? "",
+    playerClass: self?.playerClass ?? "pistol",
+    upgrades: {
+      fireRate: self?.upgrades?.fireRate ?? 0,
+      damage: self?.upgrades?.damage ?? 0,
+      pierce: self?.upgrades?.pierce ?? 0,
+      health: self?.upgrades?.health ?? 0,
+      speed: self?.upgrades?.speed ?? 0,
+      scope: self?.upgrades?.scope ?? 0,
+    },
+  };
 
   const shootBullet = useCallback(
     (
@@ -83,11 +96,11 @@ export function GunManager({
         const zombieMeta = bodyMeta.get(zombieBody);
         const zombieId = zombieMeta?.id;
         if (zombieId) {
-          room?.send("meleeHitZombie", {
+      room?.send("meleeHitZombie", {
             zombieId,
             damage: callWaveBasedFunction(
               weaponConfig.damageUpgrade,
-              self.upgrades.damage,
+          safeSelf.upgrades.damage,
               weaponConfig.weapons.melee.damage
             ),
             knockBack: weaponConfig.weapons.melee.knockBack,
@@ -96,41 +109,41 @@ export function GunManager({
       },
       [x, y, rotation]
     );
-  }, [x, y, rotation, self.upgrades.damage, room]);
+  }, [x, y, rotation, safeSelf.upgrades.damage, room]);
 
   useRoomMessageHandler("shotSound", (message) => {
     const { playerClass, playerId } = message;
-    if (playerId !== self.sessionId) {
+    if (playerId !== safeSelf.sessionId) {
       playGunSound(playerClass);
     }
   });
 
   const shoot = useCallback(
     (coolDownTicksAfter: number) => {
-      const barrelMoveForwardFactor = self.playerClass === "pistol" ? 70 : 100;
+      const barrelMoveForwardFactor = safeSelf.playerClass === "pistol" ? 70 : 100;
       const originX = x + Math.cos(rotation) * barrelMoveForwardFactor;
       const originY = y + Math.sin(rotation) * barrelMoveForwardFactor;
 
-      const weapon = getWeaponData(self.playerClass);
+      const weapon = getWeaponData(safeSelf.playerClass);
       const damage = callWaveBasedFunction(
         weaponConfig.damageUpgrade,
-        self.upgrades.damage,
+        safeSelf.upgrades.damage,
         weapon.damage
       );
       const pierces = callWaveBasedFunction(
         weaponConfig.pierceUpgrade,
-        self.upgrades.pierce,
+        safeSelf.upgrades.pierce,
         weapon.pierce
       );
       const bulletSpread = weapon.bulletSpread;
 
       room?.send("shotSound", {
-        playerClass: self.playerClass,
-        playerId: self.sessionId,
+        playerClass: safeSelf.playerClass,
+        playerId: safeSelf.sessionId,
       });
-      playGunSound(self.playerClass, (coolDownTicksAfter / 20) * 1000);
+      playGunSound(safeSelf.playerClass, (coolDownTicksAfter / 20) * 1000);
 
-      if (self.playerClass === "shotgun") {
+      if (safeSelf.playerClass === "shotgun") {
         const SPREAD_RANGE = 0.45;
         const bulletAmount = weaponConfig.weapons.shotgun.bulletAmount;
         for (let i = 0; i < bulletAmount; i++) {
@@ -171,11 +184,11 @@ export function GunManager({
       y,
       rotation,
       shootBullet,
-      self.playerClass,
+      safeSelf.playerClass,
       room,
-      self.sessionId,
-      self.upgrades.damage,
-      self.upgrades.pierce,
+      safeSelf.sessionId,
+      safeSelf.upgrades.damage,
+      safeSelf.upgrades.pierce,
     ]
   );
 
@@ -213,8 +226,8 @@ export function GunManager({
         200 /
         callWaveBasedFunction(
           weaponConfig.fireRateUpgrade,
-          self.upgrades.fireRate,
-          getWeaponData(self.playerClass).fireRate
+          safeSelf.upgrades.fireRate,
+          getWeaponData(safeSelf.playerClass).fireRate
         );
       shoot(coolDownTicks);
 

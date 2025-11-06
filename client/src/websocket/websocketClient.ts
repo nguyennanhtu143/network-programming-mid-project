@@ -63,12 +63,29 @@ export const websocketClient = {
 
       // Handle game state updates
       socket.on("stateUpdate", (state: MyRoomState) => {
+        console.debug("[WS<-] stateUpdate", {
+          players: state?.players ? (state.players instanceof Map ? state.players.size : Object.keys(state.players as any).length) : 0,
+          gameTick: (state as any)?.gameTick,
+          waveInfo: (state as any)?.waveInfo,
+        });
         if (currentRoom) {
           currentRoom.state = state;
         }
         // Convert Map from JSON if needed
         if (state.players && !(state.players instanceof Map)) {
           state.players = new Map(Object.entries(state.players));
+        }
+        // Ensure arrays for bullets/zombies
+        const anyState: any = state as any;
+        if (!Array.isArray(anyState.zombies)) {
+          anyState.zombies = Array.isArray(anyState.zombies)
+            ? anyState.zombies
+            : Object.values(anyState.zombies || {});
+        }
+        if (!Array.isArray(anyState.bullets)) {
+          anyState.bullets = Array.isArray(anyState.bullets)
+            ? anyState.bullets
+            : Object.values(anyState.bullets || {});
         }
         // Notify all state subscribers
         messageHandlers.get("stateUpdate")?.forEach((handler) => handler(state));
@@ -87,6 +104,7 @@ export const websocketClient = {
         reconnectToken: string;
         state: MyRoomState;
       }) => {
+        console.debug("[WS<-] roomJoined", { roomId: data.roomId, sessionId: data.sessionId });
         currentRoomId = data.roomId;
         reconnectToken = data.reconnectToken;
         localStorage.setItem("reconnectToken", reconnectToken);
@@ -99,11 +117,26 @@ export const websocketClient = {
         if (data.state.players && !(data.state.players instanceof Map)) {
           data.state.players = new Map(Object.entries(data.state.players));
         }
+        // Ensure arrays for bullets/zombies on initial state
+        const anyState2: any = data.state as any;
+        if (!Array.isArray(anyState2.zombies)) {
+          anyState2.zombies = Array.isArray(anyState2.zombies)
+            ? anyState2.zombies
+            : Object.values(anyState2.zombies || {});
+        }
+        if (!Array.isArray(anyState2.bullets)) {
+          anyState2.bullets = Array.isArray(anyState2.bullets)
+            ? anyState2.bullets
+            : Object.values(anyState2.bullets || {});
+        }
         messageHandlers.get("stateUpdate")?.forEach((handler) => handler(data.state));
       });
 
       // Handle all other message types
       socket.onAny((eventName, ...args) => {
+        try {
+          console.debug("[WS<-]", eventName, args[0]);
+        } catch {}
         const handlers = messageHandlers.get(eventName);
         handlers?.forEach((handler) => handler(args[0]));
       });

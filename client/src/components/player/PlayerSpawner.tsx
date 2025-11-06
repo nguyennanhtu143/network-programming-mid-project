@@ -6,8 +6,11 @@ export function PlayerSpawner() {
   const room = useWebSocketRoom();
   const spawnPoints = useSpawnPoints("player");
   useRoomMessageHandler("requestSpawn", () => {
-    const spawnPoint =
-      spawnPoints[Math.floor(Math.random() * spawnPoints.length)];
+    const fallback = { x: 400, y: 300 };
+    const hasPoints = Array.isArray(spawnPoints) && spawnPoints.length > 0;
+    const spawnPoint = hasPoints
+      ? spawnPoints[Math.floor(Math.random() * spawnPoints.length)]
+      : fallback;
 
     room?.send("spawnSelf", {
       x: spawnPoint.x,
