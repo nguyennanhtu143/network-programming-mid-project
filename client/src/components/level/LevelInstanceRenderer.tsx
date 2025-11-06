@@ -1,8 +1,5 @@
 import { Container, Stage, TilingSprite } from "@pixi/react";
-import {
-  GameLevel,
-  MapObject,
-} from "../../../../server/src/game/mapEditor/editorTypes";
+import { GameLevel, MapObject } from "../../editor/types/editorTypes";
 import {
   AssetObjectColliders,
   AssetObjectRendering,
@@ -12,7 +9,6 @@ import { useMemo } from "react";
 import { SpawnPointDisplay } from "../../editor/MapEditor";
 import { LogtoProvider } from "@logto/react";
 import { logtoConfig } from "../../lib/auth/logto";
-import { TrpcWrapper } from "../../lib/trpc/TrpcWrapper";
 
 export function LevelInstanceRenderer({ level }: { level: GameLevel }) {
   return (
@@ -42,7 +38,6 @@ export function MapPreviewRenderer({
   return (
     <Stage raf={false} width={size} height={size}>
       <LogtoProvider config={logtoConfig}>
-        <TrpcWrapper>
           <Container
             anchor={{
               x: 0.5,
@@ -64,7 +59,6 @@ export function MapPreviewRenderer({
               renderSpawnPoints
             />
           </Container>
-        </TrpcWrapper>
       </LogtoProvider>
     </Stage>
   );

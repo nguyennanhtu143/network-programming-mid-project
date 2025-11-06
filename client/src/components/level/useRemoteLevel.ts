@@ -1,20 +1,42 @@
-import { trpc } from "../../lib/trpc/trpcClient";
-import { useColyseusRoom, useColyseusState } from "../../colyseus";
-import { useEffect } from "react";
+import { useWebSocketRoom } from "../../websocket/websocketClient";
+import { useGameStateSelector } from "../../lib/gameState/gameStateStore";
+import { useEffect, useState } from "react";
+type GameLevel = { objects: unknown[] };
 
 export function useRemoteLevel(mapId: string | undefined) {
-  const level = trpc.maps.loadMap.useQuery(mapId);
+  const [data, setData] = useState<{ level: GameLevel; id: string; name: string } | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  if (!level.data) {
-    return null;
-  }
+  useEffect(() => {
+    let aborted = false;
+    if (!mapId) {
+      setData(null);
+      return;
+    }
+    setLoading(true);
+    fetch(`/api/maps/${mapId}`)
+      .then((r) => r.json())
+      .then((res) => {
+        if (!aborted) setData(res);
+      })
+      .catch(() => {
+        if (!aborted) setData(null);
+      })
+      .finally(() => {
+        if (!aborted) setLoading(false);
+      });
+    return () => {
+      aborted = true;
+    };
+  }, [mapId]);
 
-  return level.data;
+  if (!data) return null;
+  return data;
 }
 
 export function useCurrentRemoteLevel() {
-  const mapId = useColyseusState((state) => state.mapId);
-  const room = useColyseusRoom();
+  const mapId = useGameStateSelector((s) => s.mapId);
+  const room = useWebSocketRoom();
   const level = useRemoteLevel(mapId);
 
   useEffect(() => {

@@ -1,13 +1,14 @@
 import { useRoomMessageHandler } from "../../lib/networking/hooks";
-import { useColyseusRoom, useColyseusState } from "../../colyseus";
-import { PlayerState } from "../../../../server/src/rooms/schema/MyRoomState";
+import { useWebSocketRoom } from "../../websocket/websocketClient";
+import { useGameStateSelector } from "../../lib/gameState/gameStateStore";
+import { PlayerState } from "../../types/gameState";
 import { useSpawnPoints } from "../level/spawnPointContext";
 
 export function ZombieSpawner() {
   const spawnPoints = useSpawnPoints("zombie");
 
-  const players = useColyseusState((state) => state.players);
-  const room = useColyseusRoom();
+  const players = useGameStateSelector((s) => s.players);
+  const room = useWebSocketRoom();
   useRoomMessageHandler("requestSpawnZombie", ({ type, respawnId }) => {
     const playersList = Array.from(players!.values());
 

@@ -1,8 +1,8 @@
 import { useApp, useTick } from "@pixi/react";
 import Matter, { Body } from "matter-js";
 import { useContext, useEffect, useRef, useState } from "react";
-import { PlayerState } from "../../../../server/src/rooms/schema/MyRoomState";
-import { useColyseusRoom } from "../../colyseus";
+import { PlayerState } from "../../types/gameState";
+import { useWebSocketRoom } from "../../websocket/websocketClient";
 import {
   useNetworkTick,
   useRoomMessageHandler,
@@ -28,7 +28,7 @@ export function PlayerSelf({ player }: { player: PlayerState }) {
     return Matter.Bodies.circle(player.x, player.y, 40);
   });
 
-  const room = useColyseusRoom();
+  const room = useWebSocketRoom();
 
   const [currentAnimation, setCurrentAnimation] = useState(
     player.currentAnimation

@@ -4,7 +4,7 @@ import { twMerge } from "tailwind-merge";
 import { useCharacterCustomizationStore } from "./characterCustomizationStore";
 import { JoinMenu } from "./JoinMenu";
 import { AuthSection } from "./mainMenu/AuthSection";
-import { trpc } from "../../lib/trpc/trpcClient";
+import { useEffect, useState } from "react";
 
 export function Menu() {
   return (
@@ -33,11 +33,11 @@ function ClassSelector() {
     useCharacterCustomizationStore();
 
   return (
-    <div className="flex flex-col items-center gap-4 p-10 card bg-neutral bg-opacity-80">
-      <h3 className="text-white font-bold text-2xl">Choose your survivor</h3>
+    <div className="flex flex-col items-center gap-4 p-10 app-card">
+      <h3 className="app-heading">Choose your survivor</h3>
 
       <CharacterPreview name={name} selectedClass={selectedClass} />
-      <div className="flex flex-row gap-3">
+      <div className="flex flex-row gap-3 class-select">
         {AVAILABLE_CLASSES.map((playerClass) => {
           return (
             <button
@@ -67,11 +67,25 @@ function ClassSelector() {
 }
 
 function Leaderboard() {
-  const { data } = trpc.stats.getLeaderboard.useQuery();
+  const [data, setData] = useState<{ leaderboard: any[] } | null>(null);
+  useEffect(() => {
+    let aborted = false;
+    fetch(`/api/stats/leaderboard`)
+      .then((r) => r.json())
+      .then((res) => {
+        if (!aborted) setData(res);
+      })
+      .catch(() => {
+        if (!aborted) setData({ leaderboard: [] });
+      });
+    return () => {
+      aborted = true;
+    };
+  }, []);
 
   return (
-    <div className="flex flex-col items-center gap-4 p-10 card bg-neutral bg-opacity-80">
-      <h3 className="text-white font-bold text-2xl">Leaderboard</h3>
+    <div className="flex flex-col items-center gap-4 p-10 app-card">
+      <h3 className="app-heading">Leaderboard</h3>
       <div className="overflow-x-auto w-full">
         <table className="table">
           <thead>

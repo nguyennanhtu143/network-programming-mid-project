@@ -1,9 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import { useEditor } from "./mapEditorStore";
-import {
-  AssetCollider,
-  AssetSource,
-} from "../../../server/src/game/mapEditor/editorTypes";
+import { AssetCollider, AssetSource } from "./types/editorTypes";
 import { twMerge } from "tailwind-merge";
 import { FileOptions, MyMapsModal } from "./FilesUI";
 import { ComponentProps, ReactNode, useEffect, useState } from "react";
@@ -533,7 +530,7 @@ function ColliderEditor({
   deleteCollider: () => void;
 }) {
   return (
-    <div className="card bg-neutral p-2 relative">
+    <div className="app-card p-2 relative">
       <div className="top-0 right-0 absolute p-2">
         <button
           className="btn btn-xs btn-error btn-outline"

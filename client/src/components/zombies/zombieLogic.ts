@@ -2,8 +2,8 @@ import { MutableRefObject, useCallback, useRef, useState } from "react";
 import {
   PlayerState,
   ZombieState,
-} from "../../../../server/src/rooms/schema/MyRoomState";
-import { useColyseusRoom } from "../../colyseus";
+} from "../../types/gameState";
+import { useWebSocketRoom } from "../../websocket/websocketClient";
 import Matter, { Body } from "matter-js";
 import { useAlivePlayers } from "../../lib/hooks/usePlayers";
 import {
@@ -35,7 +35,7 @@ export function useZombieLogic(
 
   const tickOffset = useState(Math.floor(Math.random() * 50))[0];
 
-  const room = useColyseusRoom();
+  const room = useWebSocketRoom();
   const alivePlayers = useAlivePlayers();
 
   const failedPathFindAttempts = useRef(0);
@@ -238,7 +238,7 @@ function attackLogic(
   zombie: ZombieState,
   x: number,
   y: number,
-  room: ReturnType<typeof useColyseusRoom>,
+  room: ReturnType<typeof useWebSocketRoom>,
   currentTick: number,
   damage: number,
   firstAttachOpportunityTick: React.MutableRefObject<number>

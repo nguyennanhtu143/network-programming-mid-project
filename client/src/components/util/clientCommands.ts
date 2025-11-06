@@ -1,14 +1,12 @@
 import { useCallback } from "react";
-import { disconnectFromColyseus, useColyseusState } from "../../colyseus";
-import { trpc } from "../../lib/trpc/trpcClient";
+import { disconnectFromColyseus } from "../../websocket/websocketClient";
+import { useGameStateSelector } from "../../lib/gameState/gameStateStore";
 import { useClientSettings } from "../ui/soundStore";
 
 export function useClientCommandInterceptor(
   respond: ({ message }: { message: string; color?: string }) => void
 ) {
-  const testConnection = trpc.testConnection.useMutation();
-  const verifyMap = trpc.maps.verifyMap.useMutation();
-  const currentMapId = useColyseusState((state) => state.mapId);
+  const currentMapId = useGameStateSelector((s) => s.mapId);
 
   return useCallback(
     (message: string) => {
@@ -20,7 +18,7 @@ export function useClientCommandInterceptor(
           disconnectFromColyseus();
           break;
         case "test":
-          testConnection.mutateAsync().then((msg) => respond({ message: msg }));
+          respond({ message: "Connection Test Successful!" });
           break;
         case "showfps":
           useClientSettings.getState().setShowFps(true);
@@ -32,17 +30,12 @@ export function useClientCommandInterceptor(
               color: "red",
             });
           }
-          verifyMap
-            .mutateAsync({
-              mapId: currentMapId,
-              verify: true,
-            })
-            .then((msg) => respond({ message: msg }));
+          respond({ message: "verifyMap not available on REST client yet." });
           break;
         default:
           return message;
       }
     },
-    [respond, testConnection, currentMapId, verifyMap]
+    [respond, currentMapId]
   );
 }

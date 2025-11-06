@@ -1,3 +1,7 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
 body {
   margin: 0;
   padding: 0;
@@ -15,6 +19,125 @@ body {
   font-weight: bold;
 }
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* UI helpers for consistent readable cards */
+@layer components {
+  .app-card {
+    /* dark warm brown translucent panel like screenshot */
+    background-color: rgba(58, 35, 20, 0.82);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    @apply shadow-xl backdrop-blur-sm rounded-2xl;
+  }
+
+  .app-heading {
+    color: #ffffff;
+    @apply font-extrabold text-3xl tracking-wide;
+  }
+
+  .app-subtle { color: #e5e7eb; }
+
+  .app-strong { color: #ffffff; }
+
+  .app-card table thead th { color: #e5e7eb; @apply font-semibold; }
+
+  .app-card table tbody td { color: #e5e7eb; }
+
+  .app-card .input {
+    background-color: rgba(17, 24, 39, 0.9); /* gray-900 @ 90% */
+    color: #e5e7eb;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    @apply placeholder-gray-400;
+  }
+
+  .app-card .btn {
+    @apply shadow-sm;
+  }
+
+  /* Join menu: make buttons equal width and centered */
+  .app-card .w-80 .btn {
+    @apply w-full justify-center;
+  }
+  .app-card .w-80 .btn { @apply h-12 text-base; }
+  /* Align input+button group heights */
+  .app-card .join .input,
+  .app-card .join .btn {
+    @apply h-12;
+  }
+  /* Join button smaller, input ROOM ID wider */
+  .app-card .join .input {
+    flex: 1 1 auto;
+    min-width: 0;
+    padding-left: 1rem; /* Indent ROOM ID text */
+  }
+  .app-card .join .btn {
+    flex: 0 0 auto;
+    width: 80px;
+    min-width: 80px;
+  }
+
+  /* Class selector buttons equal size */
+  .app-card .class-select .btn {
+    min-width: 96px; /* ~24rem/4 */
+    height: 44px;
+    @apply justify-center;
+  }
+
+  /* Stronger yet harmonious buttons & inputs on warm background */
+  /* primary: vibrant amber/orange */
+  .app-card .btn-primary, .app-card .btn.btn-primary {
+    background-color: #f59e0b;
+    border-color: #d97706;
+    color: #111827;
+  }
+  .app-card .btn-primary:hover, .app-card .btn.btn-primary:hover {
+    background-color: #f59f1f;
+    border-color: #b45309;
+    color: #111827;
+  }
+
+  /* default/secondary dark buttons */
+  .app-card .btn:not(.btn-primary) {
+    background-color: #1f2937; /* gray-800 */
+    border-color: #111827;
+    color: #e5e7eb;
+  }
+  .app-card .btn:not(.btn-primary):hover {
+    background-color: #374151;
+  }
+  .app-card .input,
+  .app-card .select,
+  .app-card .textarea {
+    border: 1px solid rgba(120, 84, 39, 0.4);
+    padding-left: 1rem; /* Indent text in all inputs */
+  }
+  /* Sign in button: compact like class-select buttons */
+  .app-card .sign-in-btn {
+    width: auto;
+    min-width: 96px;
+    height: 44px;
+    @apply justify-center;
+  }
+  /* Room Settings buttons sizing */
+  .app-card .room-settings-btn-small {
+    flex-shrink: 0;
+    padding: 0.5rem 1rem;
+    height: auto;
+    min-width: auto;
+  }
+  .app-card .room-settings-btn-primary {
+    height: 3rem;
+    font-size: 1rem;
+    font-weight: 600;
+  }
+  .app-card .room-settings-btn-back {
+    width: auto;
+    min-width: 120px;
+    height: 2.5rem;
+  }
+  .app-card .input:focus,
+  .app-card .select:focus,
+  .app-card .textarea:focus {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.35);
+    border-color: #f59e0b;
+  }
+}

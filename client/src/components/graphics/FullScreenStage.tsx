@@ -1,7 +1,6 @@
 import { Container, Stage, withFilters } from "@pixi/react";
 import { useMemo } from "react";
 import { useWindowSize } from "usehooks-ts";
-import { TrpcWrapper } from "../../lib/trpc/TrpcWrapper";
 import { logtoConfig } from "../../lib/auth/logto";
 import { LogtoProvider } from "@logto/react";
 import { useClientSettings } from "../ui/soundStore";
@@ -42,9 +41,7 @@ export function FullScreenStage({ children }: { children: React.ReactNode }) {
         windowSize.height && windowSize.height > 0 ? windowSize.height : 600
       }
     >
-      <LogtoProvider config={logtoConfig}>
-        <TrpcWrapper>{children}</TrpcWrapper>
-      </LogtoProvider>
+      <LogtoProvider config={logtoConfig}>{children}</LogtoProvider>
       <Container>{showFps && <FpsTracker />}</Container>
     </Stage>
   );

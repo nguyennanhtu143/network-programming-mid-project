@@ -1,16 +1,16 @@
 import { useCallback, useState } from "react";
-import { colyseusClient, setCurrentRoom } from "../../colyseus";
-import { MyRoomState } from "../../../../server/src/rooms/schema/MyRoomState";
+import { useRoomMethods } from "../../lib/networking/rooms";
 import { useCharacterCustomizationStore } from "./characterCustomizationStore";
-import { useNavigate } from "react-router-dom";
 import { MapSelector } from "./mainMenu/MapSelector";
 import { twMerge } from "tailwind-merge";
+import { websocketClient } from "../../websocket/websocketClient";
+import { useGameStateStore } from "../../lib/gameState/gameStateStore";
 
 let connecting = false;
 
 export function JoinMenu() {
   const { selectedClass, name } = useCharacterCustomizationStore();
-  const navigate = useNavigate();
+  const roomMethods = useRoomMethods();
   const [selectedRoom, setSelectedRoom] = useState<
     "singlePlayer" | "multiPlayer"
   >("multiPlayer");
@@ -19,22 +19,16 @@ export function JoinMenu() {
   const pressQuickPlay = useCallback(() => {
     if (connecting) return;
     connecting = true;
-    colyseusClient
-      .joinOrCreate<MyRoomState>("my_room", {
-        quickPlay: true,
-
-        playerName: name,
-        playerClass: selectedClass,
-      })
-      .then(setCurrentRoom)
+    roomMethods
+      .quickPlay()
       .finally(() => {
         connecting = false;
       });
-  }, [name, selectedClass]);
+  }, [roomMethods]);
 
   if (step === "roomSettings") {
     return (
-      <div className="card bg-neutral h-full p-10">
+      <div className="app-card h-full p-10">
         <RoomSettings
           roomType={selectedRoom}
           onBack={() => {
@@ -46,9 +40,9 @@ export function JoinMenu() {
   }
 
   return (
-    <div className="card bg-neutral h-full p-10 bg-opacity-80">
+    <div className="app-card h-full p-10">
       <div className="w-full flex flex-col items-center gap-10">
-        <h3 className="text-white font-bold text-2xl">Join a game</h3>
+        <h3 className="app-heading">Join a game</h3>
         <div className="flex flex-col gap-4 w-80">
           <button
             className="btn btn-primary"
@@ -79,14 +73,6 @@ export function JoinMenu() {
           </button>
           <JoinByIdField />
         </div>
-        <button
-          className="btn"
-          onClick={() => {
-            navigate("/editor");
-          }}
-        >
-          Map Editor
-        </button>
       </div>
     </div>
   );
@@ -98,7 +84,7 @@ function JoinByIdField() {
 
   const [id, setId] = useState("");
 
-  const pressJoin = useCallback(() => {
+  const pressJoin = useCallback(async () => {
     if (connecting) return;
     connecting = true;
     if (!id) {
@@ -106,18 +92,20 @@ function JoinByIdField() {
       connecting = false;
       return;
     }
-    colyseusClient
-      .joinById<MyRoomState>(id.toLowerCase(), {
+    try {
+      if (!websocketClient.isConnected()) {
+        await websocketClient.connect();
+      }
+      const state = await websocketClient.joinRoom(id.toLowerCase(), {
         playerName: name,
         playerClass: selectedClass,
-      })
-      .then(setCurrentRoom)
-      .catch((e) => {
-        setError(e.message);
-      })
-      .finally(() => {
-        connecting = false;
       });
+      useGameStateStore.getState().setState(state);
+    } catch (e: any) {
+      setError(e.message || "Failed to join room");
+    } finally {
+      connecting = false;
+    }
   }, [id, name, selectedClass]);
 
   return (
@@ -156,38 +144,43 @@ function RoomSettings({
 
   const [mapSelectorOpen, setMapSelectorOpen] = useState(false);
 
+  const roomMethods = useRoomMethods();
   const pressCreate = useCallback(() => {
     if (connecting) return;
     connecting = true;
-    colyseusClient
-      .create<MyRoomState>("my_room", {
-        quickPlay: false,
-        maxPlayers: roomType === "singlePlayer" ? 1 : 10,
-        isPrivate: true,
-        waveStartType: "playerCount",
-        requiredPlayerCount: roomType === "singlePlayer" ? 1 : 2,
-        mapId: mapId || undefined,
-
-        playerName: name,
-        playerClass: selectedClass,
-      })
-      .then(setCurrentRoom)
-      .finally(() => {
-        connecting = false;
-      });
-  }, [name, selectedClass, roomType, mapId]);
+    if (roomType === "singlePlayer") {
+      roomMethods
+        .singlePlayer()
+        .finally(() => {
+          connecting = false;
+        });
+    } else {
+      roomMethods
+        .createRoom({
+          quickPlay: false,
+          maxPlayers: 10,
+          isPrivate: true,
+          waveStartType: "playerCount",
+          requiredPlayerCount: 2,
+          mapId: mapId || undefined,
+          playerName: name,
+          playerClass: selectedClass,
+        })
+        .finally(() => {
+          connecting = false;
+        });
+    }
+  }, [name, selectedClass, roomType, mapId, roomMethods]);
   return (
-    <div className="flex flex-col gap-2 items-start">
-      <div className="flex flex-row gap-2 items-center">
-        <h3 className="text-white font-bold text-2xl">
-          {roomType == "multiPlayer" ? "Room" : "Single Player"} Settings
-        </h3>
-      </div>
+    <div className="flex flex-col gap-4 items-start w-full">
+      <h3 className="app-heading">
+        {roomType == "multiPlayer" ? "Room" : "Single Player"} Settings
+      </h3>
 
-      <div className="flex flex-row items-center gap-3">
-        <h4 className="text-white font-bold text-lg">Map: {mapName}</h4>
+      <div className="flex flex-row items-center gap-3 w-full">
+        <h4 className="app-strong font-bold text-lg flex-1">Map: {mapName}</h4>
         <button
-          className="btn text-sm p-1 px-2"
+          className="btn btn-sm room-settings-btn-small"
           onClick={() => {
             setMapSelectorOpen(true);
           }}
@@ -196,10 +189,10 @@ function RoomSettings({
         </button>
       </div>
 
-      <button onClick={pressCreate} className="btn btn-primary">
+      <button onClick={pressCreate} className="btn btn-primary w-full room-settings-btn-primary">
         Create Room
       </button>
-      <button onClick={onBack} className="btn btn-secondary">
+      <button onClick={onBack} className="btn room-settings-btn-back">
         Back
       </button>
       <MapSelector

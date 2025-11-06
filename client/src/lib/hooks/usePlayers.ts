@@ -1,8 +1,8 @@
-import { useColyseusState } from "../../colyseus";
-import { PlayerHealthState } from "../../../../server/src/rooms/schema/MyRoomState";
+import { useGameStateSelector } from "../gameState/gameStateStore";
+import { PlayerHealthState } from "../../types/gameState";
 
 export function usePlayers() {
-  const playerMap = useColyseusState((state) => state.players);
+  const playerMap = useGameStateSelector((s) => s.players);
   return playerMap ? Array.from(playerMap.values()) : [];
 }
 

@@ -1,4 +1,4 @@
-import { MapObject } from "../../../server/src/game/mapEditor/editorTypes";
+import { MapObject } from "./types/editorTypes";
 import { useEditor } from "./mapEditorStore";
 
 export function CreateAssetsMenu() {

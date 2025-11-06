@@ -1,15 +1,14 @@
 import { useState } from "react";
 import { twMerge } from "tailwind-merge";
-import { trpc } from "../lib/trpc/trpcClient";
+import { useEffect } from "react";
 import { useEditor } from "./mapEditorStore";
-import { GameLevel } from "../../../server/src/game/mapEditor/editorTypes";
+import { GameLevel } from "./types/editorTypes";
 import { MapPreviewRenderer } from "../components/level/LevelInstanceRenderer";
 
 export function FileOptions() {
   const level = useEditor((state) => state.level);
   const resetLevel = useEditor((state) => state.resetLevel);
-  const saveMap = trpc.maps.saveNewMap.useMutation();
-  const utils = trpc.useUtils();
+  // REST save map
   const setCurrentView = useEditor((state) => state.setCurrentView);
 
   return (
@@ -41,11 +40,11 @@ export function FileOptions() {
             className="btn btn-sm btn-primary"
             onClick={async () => {
               const name = prompt("Enter a name for the map");
-              await saveMap.mutateAsync({
-                name: name ?? "Unnamed Map",
-                level: level,
+              await fetch(`/api/maps`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name: name ?? "Unnamed Map", level }),
               });
-              utils.maps.invalidate();
             }}
           >
             Save as New Map
@@ -75,7 +74,17 @@ export function FileOptions() {
 }
 
 export function MyMapsModal() {
-  const myMaps = trpc.maps.myMaps.useQuery();
+  const [myMaps, setMyMaps] = useState<{ id: string }[] | null>(null);
+  useEffect(() => {
+    let aborted = false;
+    fetch(`/api/maps/my`)
+      .then((r) => r.json())
+      .then((res) => !aborted && setMyMaps(res))
+      .catch(() => !aborted && setMyMaps([] as any));
+    return () => {
+      aborted = true;
+    };
+  }, []);
 
   if (!open) {
     return null;
@@ -86,7 +95,7 @@ export function MyMapsModal() {
       <div className="p-4">
         <h2 className="text-white font-bold text-xl mb-4">My Maps</h2>
         <div className="grid grid-cols-4 gap-2">
-          {myMaps.data?.map((map) => (
+          {myMaps?.map((map) => (
             <MapCard key={map.id} id={map.id} />
           ))}
         </div>
@@ -96,27 +105,33 @@ export function MyMapsModal() {
 }
 
 function MapCard({ id }: { id: string }) {
-  const map = trpc.maps.myMapOne.useQuery(id);
+  const [map, setMap] = useState<any | null>(null);
+  useEffect(() => {
+    let aborted = false;
+    fetch(`/api/maps/my/${id}`)
+      .then((r) => r.json())
+      .then((res) => !aborted && setMap(res))
+      .catch(() => !aborted && setMap(null));
+    return () => {
+      aborted = true;
+    };
+  }, [id]);
   const loadLevel = useEditor((state) => state.loadLevel);
   const level = useEditor((state) => state.level);
-  const togglePublish = trpc.maps.setPublishMap.useMutation();
-  const overwriteMap = trpc.maps.overwriteMap.useMutation();
-  const deleteMap = trpc.maps.deleteMap.useMutation();
-  const utils = trpc.useUtils();
 
-  if (!map.data) return;
+  if (!map) return;
 
   return (
-    <div className="card bg-neutral">
+    <div className="app-card">
       <figure className="max-h-56">
-        <MapPreviewRenderer level={map.data.level as GameLevel} size={400} />
+        <MapPreviewRenderer level={map.level as GameLevel} size={400} />
       </figure>
       <div className="card-body">
-        <h3 className="card-title">{map.data.name}</h3>
+        <h3 className="card-title">{map.name}</h3>
         <div className="card-actions">
           <ConfirmButton
             onClick={() => {
-              loadLevel(map.data.level);
+              loadLevel(map.level);
             }}
             className="btn btn-sm"
           >
@@ -124,11 +139,11 @@ function MapCard({ id }: { id: string }) {
           </ConfirmButton>
           <ConfirmButton
             onClick={async () => {
-              await overwriteMap.mutateAsync({
-                mapId: map.data.id,
-                level: level,
+              await fetch(`/api/maps/${map.id}`, {
+                method: "PUT",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ level }),
               });
-              utils.maps.invalidate();
             }}
             className="btn btn-sm"
           >
@@ -136,8 +151,7 @@ function MapCard({ id }: { id: string }) {
           </ConfirmButton>
           <ConfirmButton
             onClick={() => {
-              deleteMap.mutateAsync(map.data.id);
-              utils.maps.invalidate();
+              fetch(`/api/maps/${map.id}`, { method: "DELETE" });
             }}
             className="btn btn-sm"
           >
@@ -146,14 +160,14 @@ function MapCard({ id }: { id: string }) {
           <button
             className="btn btn-sm"
             onClick={async () => {
-              await togglePublish.mutateAsync({
-                mapId: map.data.id,
-                publish: !map.data.published,
+              await fetch(`/api/maps/${map.id}/publish`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ publish: !map.published }),
               });
-              utils.maps.invalidate();
             }}
           >
-            {map.data.published ? "Unpublish" : "Publish"}
+            {map.published ? "Unpublish" : "Publish"}
           </button>
         </div>
       </div>

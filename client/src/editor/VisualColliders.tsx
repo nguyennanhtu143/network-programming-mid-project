@@ -1,8 +1,5 @@
 import { Container, Graphics } from "@pixi/react";
-import {
-  AssetCollider,
-  AssetObject,
-} from "../../../server/src/game/mapEditor/editorTypes";
+import { AssetCollider, AssetObject } from "./types/editorTypes";
 import { memo, useCallback } from "react";
 import * as PIXI from "pixi.js";
 import lodash from "lodash";

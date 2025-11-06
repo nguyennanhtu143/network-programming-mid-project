@@ -8,7 +8,7 @@ export function AuthSection() {
 
   return (
     <button
-      className="btn"
+      className="btn sign-in-btn"
       onClick={() => signIn(window.location.origin + "/auth/callback")}
     >
       Sign in

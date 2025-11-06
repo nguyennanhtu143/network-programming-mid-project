@@ -1,11 +1,11 @@
 import { Body } from "matter-js";
 import { useBulletHitListener } from "../bullets/bullet";
-import { useColyseusRoom } from "../../colyseus";
+import { useWebSocketRoom } from "../../websocket/websocketClient";
 import { useEffect } from "react";
 import { playZombieGrowl } from "../../lib/sound/sound";
 
 export function useZombieBulletHitListener(body: Body, zombieId: number) {
-  const room = useColyseusRoom();
+  const room = useWebSocketRoom();
   useBulletHitListener(body, (bullet) => {
     room?.send("zombieHit", { zombieId, bulletId: bullet.id });
   });

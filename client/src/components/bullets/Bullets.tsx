@@ -1,6 +1,7 @@
 import { Container, Graphics, useTick } from "@pixi/react";
-import { useColyseusRoom, useColyseusState } from "../../colyseus";
-import { BulletState } from "../../../../server/src/rooms/schema/MyRoomState";
+import { useWebSocketRoom } from "../../websocket/websocketClient";
+import { useGameStateSelector } from "../../lib/gameState/gameStateStore";
+import { BulletState } from "../../types/gameState";
 import { useCallback, useState } from "react";
 import {
   getBodyMeta,
@@ -12,8 +13,7 @@ import { useRerender } from "../../lib/useRerender";
 import { bulletHitListeners } from "./bullet";
 
 export function Bullets() {
-  const state = useColyseusState();
-  const bullets = state?.bullets;
+  const bullets = useGameStateSelector((s) => s.bullets);
 
   return (
     <Container>
@@ -25,7 +25,7 @@ export function Bullets() {
 }
 
 function Bullet({ bullet }: { bullet: BulletState }) {
-  const sessionId = useColyseusRoom()?.sessionId;
+  const sessionId = useWebSocketRoom()?.sessionId;
   const isMe = bullet.playerId === sessionId;
 
   if (isMe) {
@@ -36,7 +36,7 @@ function Bullet({ bullet }: { bullet: BulletState }) {
 }
 
 function MyBullet({ bullet }: { bullet: BulletState }) {
-  const room = useColyseusRoom();
+  const room = useWebSocketRoom();
   const rerender = useRerender();
   const [localDestroyed, setLocalDestroyed] = useState(false); // so the bullet doesn't go through the wall on the client
 

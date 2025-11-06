@@ -1,8 +1,5 @@
 import { Sprite, TilingSprite } from "@pixi/react";
-import {
-  AssetCollider,
-  AssetObject,
-} from "../../../../server/src/game/mapEditor/editorTypes";
+import { AssetCollider, AssetObject } from "../../editor/types/editorTypes";
 import { Texture, Assets } from "pixi.js";
 import { ComponentProps, useEffect, useMemo, useState } from "react";
 import { useBodyRef } from "../../lib/physics/hooks";

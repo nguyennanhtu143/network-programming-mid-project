@@ -1,8 +1,9 @@
 import {
   PlayerHealthState,
   PlayerState,
-} from "../../../../server/src/rooms/schema/MyRoomState";
-import { useColyseusRoom, useColyseusState } from "../../colyseus";
+} from "../../types/gameState";
+import { useWebSocketRoom } from "../../websocket/websocketClient";
+import { useGameStateSelector } from "../../lib/gameState/gameStateStore";
 import { Container, Sprite, useTick } from "@pixi/react";
 import { useLerped, useLerpedRadian } from "../../lib/useLerped";
 import { PlayerSprite } from "./PlayerSprite";
@@ -18,8 +19,7 @@ import { getMaxHealth } from "../../../../server/src/game/player";
 import { getEntityFilters } from "../graphics/filters";
 
 export function Players() {
-  const state = useColyseusState();
-  const players = state?.players;
+  const players = useGameStateSelector((s) => s.players);
   const self = useSelf();
 
   useRoomMessageHandler("playerDied", (message) => {
@@ -42,7 +42,7 @@ export function Players() {
 }
 
 function Player({ player }: { player: PlayerState }) {
-  const sessionId = useColyseusRoom()?.sessionId;
+  const sessionId = useWebSocketRoom()?.sessionId;
   const isMe = player.sessionId === sessionId;
 
   if (isMe) {

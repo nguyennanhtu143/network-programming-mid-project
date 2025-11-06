@@ -1,5 +1,5 @@
 import { createContext, useContext, useMemo } from "react";
-import { GameLevel } from "../../../../server/src/game/mapEditor/editorTypes";
+import { GameLevel } from "../../editor/types/editorTypes";
 
 interface LevelContext {
   level: GameLevel;

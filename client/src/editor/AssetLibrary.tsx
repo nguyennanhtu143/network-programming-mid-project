@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { CenteredFullScreen } from "../components/ui/uiUtils";
-import { trpc } from "../lib/trpc/trpcClient";
+import { useEffect } from "react";
 import { useDebounceValue } from "usehooks-ts";
 import { useCustomAssetBaseUrl } from "./assets/hooks";
 import { backendUrl } from "../lib/trpc/backendUrl";
@@ -20,9 +20,22 @@ export function AssetLibrary({
   const [uploadModalOpen, setUploadModalOpen] = useState(false);
   const [search, setSearch] = useState("");
   const [debouncedSearch] = useDebounceValue(search, 200);
-  const assets = trpc.maps.assets.viewAssetLibrary.useQuery({
-    search: debouncedSearch,
-  });
+  const [assets, setAssets] = useState<{ id: string; uploadId: string; name: string; tags: string[] }[]>([]);
+  useEffect(() => {
+    let aborted = false;
+    const params = debouncedSearch ? `?search=${encodeURIComponent(debouncedSearch)}` : "";
+    fetch(`/api/assets${params}`)
+      .then((r) => r.json())
+      .then((list) => {
+        if (!aborted) setAssets(list);
+      })
+      .catch(() => {
+        if (!aborted) setAssets([]);
+      });
+    return () => {
+      aborted = true;
+    };
+  }, [debouncedSearch]);
 
   if (!open) {
     if (search) setSearch("");
@@ -50,7 +63,7 @@ export function AssetLibrary({
           </button>
         </div>
         <div className="overflow-y-auto h-96">
-          {assets.data?.map((asset) => (
+          {assets.map((asset) => (
             <div
               key={asset.id}
               onClick={() => onSelect(asset.uploadId)}
@@ -86,8 +99,7 @@ function UploadAssetModal({
   open: boolean;
   onClose: () => void;
 }) {
-  // const uploadAsset = trpc.maps.assets.uploadAssetFromUrl.useMutation();
-  const utils = trpc.useUtils();
+  // removed trpc utils
   const { getAccessToken } = useLogto();
   const [loading, setLoading] = useState(false);
 
@@ -105,7 +117,7 @@ function UploadAssetModal({
         )}`,
       },
     })
-      .then(() => utils.maps.assets.invalidate())
+      .then(() => {})
       .finally(() => {
         console.log("done");
         setLoading(false);

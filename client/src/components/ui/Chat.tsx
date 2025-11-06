@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useUIStore } from "./uiStore";
 import { twMerge } from "tailwind-merge";
-import { useColyseusRoom } from "../../colyseus";
+import { useWebSocketRoom } from "../../websocket/websocketClient";
 import { useRoomMessageHandler } from "../../lib/networking/hooks";
 import { useClientCommandInterceptor } from "../util/clientCommands";
 
@@ -14,7 +14,7 @@ export function Chat() {
     }[]
   >([]);
   const { chatOpen, setChatOpen } = useUIStore();
-  const room = useColyseusRoom();
+  const room = useWebSocketRoom();
 
   useRoomMessageHandler("chatMessage", (message) => {
     setMessages((messages) => [

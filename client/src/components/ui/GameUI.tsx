@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { useRoomMessageHandler, useSelf } from "../../lib/networking/hooks";
 import { playWaveStart } from "../../lib/sound/sound";
-import { disconnectFromColyseus, useColyseusState } from "../../colyseus";
+import { disconnectFromColyseus } from "../../websocket/websocketClient";
+import { useGameStateSelector } from "../../lib/gameState/gameStateStore";
 import { UpgradeStore } from "./UpgradeStore";
 import { EscapeScreen } from "./EscapeScreen";
 import { Chat } from "./Chat";
@@ -104,7 +105,7 @@ export function SkillPointSymbol() {
 }
 
 function WaveInfo() {
-  const waveInfo = useColyseusState((state) => state.waveInfo);
+  const waveInfo = useGameStateSelector((s) => s.waveInfo);
 
   const title =
     waveInfo?.currentWaveNumber == 0

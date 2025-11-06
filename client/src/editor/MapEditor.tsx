@@ -1,5 +1,5 @@
 import { Container, Sprite } from "@pixi/react";
-import { SpawnPoint } from "../../../server/src/game/mapEditor/editorTypes";
+import { SpawnPoint } from "./types/editorTypes";
 import { FullScreenStage } from "../components/graphics/FullScreenStage";
 import { EditorCamera, EditorControls } from "./EditorCamera";
 import { useEditor } from "./mapEditorStore";

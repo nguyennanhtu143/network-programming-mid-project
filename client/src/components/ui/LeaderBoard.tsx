@@ -1,14 +1,13 @@
 import { twMerge } from "tailwind-merge";
 import { calculateScore } from "../../../../server/src/game/player";
-import { useColyseusState } from "../../colyseus";
+import { useGameStateSelector } from "../../lib/gameState/gameStateStore";
 import { useUIStore } from "./uiStore";
 import { useIsKeyDown } from "../../lib/useControls";
 import { useEffect } from "react";
 
 export function LeaderBoard({ gameOver }: { gameOver: boolean }) {
   const { leaderboardOpen, setLeaderboardOpen } = useUIStore();
-  const state = useColyseusState();
-  const players = state?.players;
+  const players = useGameStateSelector((s) => s.players);
   const keyDown = useIsKeyDown("tab");
   useEffect(() => {
     setLeaderboardOpen(keyDown || gameOver);
@@ -21,7 +20,7 @@ export function LeaderBoard({ gameOver }: { gameOver: boolean }) {
         !leaderboardOpen && "hidden"
       )}
     >
-      <div className="flex flex-col items-center card bg-neutral bg-opacity-80">
+      <div className="flex flex-col items-center app-card">
         <table className="table">
           <thead>
             <tr>

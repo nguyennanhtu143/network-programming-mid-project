@@ -1,8 +1,5 @@
 import { create } from "zustand";
-import {
-  GameLevel,
-  MapObject,
-} from "./../../../server/src/game/mapEditor/editorTypes";
+import { GameLevel, MapObject } from "./types/editorTypes";
 import { produce } from "immer";
 import { persist } from "zustand/middleware";
 interface MapEditorStore {

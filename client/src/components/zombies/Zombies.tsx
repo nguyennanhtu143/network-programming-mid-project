@@ -1,6 +1,7 @@
 import { AnimatedSprite, Container, useTick } from "@pixi/react";
-import { useColyseusRoom, useColyseusState } from "../../colyseus";
-import { ZombieState } from "../../../../server/src/rooms/schema/MyRoomState";
+import { useWebSocketRoom } from "../../websocket/websocketClient";
+import { useGameStateSelector } from "../../lib/gameState/gameStateStore";
+import { ZombieState } from "../../types/gameState";
 import { ZombieType, zombieInfo } from "../../../../server/src/game/zombies";
 import { MyZombie } from "./MyZombie";
 import { useLerped, useLerpedRadian } from "../../lib/useLerped";
@@ -25,9 +26,8 @@ import { GlowFilter } from "pixi-filters";
 import { useZombieColliders } from "./zombieColliders";
 
 export function Zombies() {
-  const state = useColyseusState();
-  const zombies = state?.zombies;
-  const room = useColyseusRoom();
+  const zombies = useGameStateSelector((s) => s.zombies);
+  const room = useWebSocketRoom();
 
   useRoomMessageHandler("zombieHit", () => {
     playZombieHitSound();
@@ -53,7 +53,7 @@ export function Zombies() {
 }
 
 function Zombie({ zombie }: { zombie: ZombieState }) {
-  const sessionId = useColyseusRoom()?.sessionId;
+  const sessionId = useWebSocketRoom()?.sessionId;
   const isMe = zombie.playerId === sessionId;
   useGrowling();
 

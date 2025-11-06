@@ -1,5 +1,6 @@
 import { useEffect } from "react";
-import { useColyseusRoom, useColyseusState } from "../../colyseus";
+import { useWebSocketRoom } from "../../websocket/websocketClient";
+import { useGameStateSelector } from "../../lib/gameState/gameStateStore";
 import { useSelf } from "../../lib/networking/hooks";
 import { SkillPointSymbol } from "./GameUI";
 import { useUIStore } from "./uiStore";
@@ -51,13 +52,13 @@ export function UpgradeStore() {
 
 function StoreModal() {
   //TODO: cleaner
-  const state = useColyseusState();
+  const players = useGameStateSelector((s) => s.players);
   const sessionId = useSelf()?.sessionId;
 
-  const upgrades = state?.players?.get(sessionId!)?.upgrades ?? {};
-  const skillPoints = state?.players?.get(sessionId!)?.skillPoints ?? 0;
+  const upgrades = sessionId ? players?.get(sessionId)?.upgrades ?? {} : {};
+  const skillPoints = sessionId ? players?.get(sessionId)?.skillPoints ?? 0 : 0;
 
-  const room = useColyseusRoom();
+  const room = useWebSocketRoom();
 
   if (!open) {
     return null;

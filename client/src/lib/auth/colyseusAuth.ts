@@ -1,8 +1,8 @@
 import { useLogto } from "@logto/react";
 import { useEffect } from "react";
-import { colyseusClient } from "../../colyseus";
+import { websocketClient } from "../../websocket/websocketClient";
 
-export function useSetColyseusAuthToken() {
+export function useSetSpringAuthToken() {
   const { isAuthenticated, getAccessToken } = useLogto();
 
   useEffect(() => {
@@ -11,10 +11,19 @@ export function useSetColyseusAuthToken() {
         const accessToken = await getAccessToken(
           "https://apocalypse.p3ntest.dev/"
         );
-        colyseusClient.auth.token = accessToken;
+        localStorage.setItem("authToken", accessToken);
+        
+        // If WebSocket is connected, we need to reconnect with new token
+        // For now, the token will be used on next connection
+        // In production, you might want to disconnect and reconnect
       } else {
-        colyseusClient.auth.token = undefined;
+        localStorage.removeItem("authToken");
+        // Optionally disconnect WebSocket if not authenticated
+        // websocketClient.disconnect();
       }
     })();
   }, [isAuthenticated, getAccessToken]);
 }
+
+// Keep old name for backward compatibility during migration
+export const useSetColyseusAuthToken = useSetSpringAuthToken;

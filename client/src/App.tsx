@@ -1,4 +1,4 @@
-import { useColyseusRoom } from "./colyseus";
+import { useWebSocketRoom } from "./websocket/websocketClient";
 import { MainStage } from "./components/MainStage";
 import { Menu } from "./components/ui/Menu";
 import { useTryJoinByQueryOrReconnectToken } from "./lib/networking/hooks";
@@ -9,7 +9,7 @@ import { logtoConfig } from "./lib/auth/logto";
 import { createBrowserRouter, Outlet, RouterProvider } from "react-router-dom";
 import { CallBackHandler } from "./routes/callback";
 import { MapEditor } from "./editor/MapEditor";
-import { TrpcWrapper } from "./lib/trpc/TrpcWrapper";
+// removed TrpcWrapper
 import { useSetColyseusAuthToken } from "./lib/auth/colyseusAuth";
 
 const router = createBrowserRouter([
@@ -36,9 +36,7 @@ const router = createBrowserRouter([
 export function Router() {
   return (
     <LogtoProvider config={logtoConfig}>
-      <TrpcWrapper>
-        <RouterProvider router={router} />
-      </TrpcWrapper>
+      <RouterProvider router={router} />
     </LogtoProvider>
   );
 }
@@ -65,10 +63,10 @@ export function App() {
 }
 
 function Game() {
-  const room = useColyseusRoom();
+  const room = useWebSocketRoom();
   useTryJoinByQueryOrReconnectToken();
 
-  if (!room) {
+  if (!room || !room.id) {
     return <Menu />;
   }
 

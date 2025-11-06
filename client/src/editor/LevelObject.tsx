@@ -1,5 +1,5 @@
 import { Container, useApp } from "@pixi/react";
-import { MapObject } from "../../../server/src/game/mapEditor/editorTypes";
+import { MapObject } from "./types/editorTypes";
 import { AssetObjectRendering } from "../components/level/AssetObjectInstance";
 import { useEditor } from "./mapEditorStore";
 import { Container as PIXIContainer } from "pixi.js";

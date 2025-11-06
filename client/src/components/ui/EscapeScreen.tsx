@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import { useUIStore } from "./uiStore";
-import { disconnectFromColyseus } from "../../colyseus";
+import { disconnectFromColyseus } from "../../websocket/websocketClient";
 import { useClientSettings } from "./soundStore";
 
 export function EscapeScreen() {
