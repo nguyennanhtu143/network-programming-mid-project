@@ -47,6 +47,9 @@ public class GameSocketHandler {
     private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
     private final ConcurrentMap<String, ScheduledFuture<?>> roomTickers = new ConcurrentHashMap<>();
     
+    // Zombie spawn scheduler per room
+    private final ConcurrentMap<String, ScheduledFuture<?>> zombieSpawnSchedulers = new ConcurrentHashMap<>();
+    
     @PostConstruct
     public void start() {
         // Register this handler with SocketIOServer so @OnConnect, @OnEvent annotations work
@@ -92,6 +95,11 @@ public class GameSocketHandler {
                         java.util.concurrent.ScheduledFuture<?> f = roomTickers.remove(roomId);
                         if (f != null) f.cancel(true);
                     } catch (Exception ignored) {}
+                    // stop zombie spawn scheduler
+                    try {
+                        java.util.concurrent.ScheduledFuture<?> zf = zombieSpawnSchedulers.remove(roomId);
+                        if (zf != null) zf.cancel(true);
+                    } catch (Exception ignored) {}
                     log.info("Removed empty room: {}", roomId);
                 } else {
                     // Broadcast state update to remaining players
@@ -102,7 +110,7 @@ public class GameSocketHandler {
     }
 
     @OnEvent("joinRoom")
-    public void onJoinRoom(SocketIOClient client, Map<String, Object> data) {
+    public void onJoinRoom(SocketIOClient client, Map<String, Object> data, AckRequest ackRequest) {
         String sessionId = client.getSessionId().toString();
         String roomId = (String) data.get("roomId");
         log.info("Client {} joining room {}", sessionId, roomId);
@@ -113,7 +121,11 @@ public class GameSocketHandler {
             Map<String, Object> errorResponse = new ConcurrentHashMap<>();
             errorResponse.put("success", false);
             errorResponse.put("error", "Room not found");
-            client.sendEvent("roomJoined", errorResponse);
+            if (ackRequest != null && ackRequest.isAckRequested()) {
+                ackRequest.sendAckData(errorResponse);
+            } else {
+                client.sendEvent("roomJoined", errorResponse);
+            }
             return;
         }
         
@@ -122,7 +134,11 @@ public class GameSocketHandler {
             Map<String, Object> errorResponse = new ConcurrentHashMap<>();
             errorResponse.put("success", false);
             errorResponse.put("error", "Room is not available (private, full, or already started)");
-            client.sendEvent("roomJoined", errorResponse);
+            if (ackRequest != null && ackRequest.isAckRequested()) {
+                ackRequest.sendAckData(errorResponse);
+            } else {
+                client.sendEvent("roomJoined", errorResponse);
+            }
             return;
         }
         
@@ -135,7 +151,11 @@ public class GameSocketHandler {
             Map<String, Object> errorResponse = new ConcurrentHashMap<>();
             errorResponse.put("success", false);
             errorResponse.put("error", "Room is full");
-            client.sendEvent("roomJoined", errorResponse);
+            if (ackRequest != null && ackRequest.isAckRequested()) {
+                ackRequest.sendAckData(errorResponse);
+            } else {
+                client.sendEvent("roomJoined", errorResponse);
+            }
             return;
         }
         
@@ -153,7 +173,14 @@ public class GameSocketHandler {
         response.put("state", room.getState());
         response.put("success", true);
         
-        client.sendEvent("roomJoined", response);
+        // Send acknowledgment if client expects it (from emit with callback)
+        if (ackRequest != null && ackRequest.isAckRequested()) {
+            ackRequest.sendAckData(response);
+            log.info("Sent acknowledgment to client {} for joinRoom", sessionId);
+        } else {
+            // Fallback: send as regular event
+            client.sendEvent("roomJoined", response);
+        }
 
         // Also send map data via WS so client doesn't need HTTP fetch
         trySendMapDataToClient(client, room.getMapId());
@@ -533,12 +560,20 @@ public class GameSocketHandler {
                                 waveInfo.put("zombiesLeft", 0);
                                 room.getState().put("waveInfo", waveInfo);
                             }
-                            waveInfo.put("currentWaveNumber", 1);
+                            int waveNumber = 1;
+                            int totalZombies = 10; // Simplified: can be calculated based on wave
+                            waveInfo.put("currentWaveNumber", waveNumber);
                             waveInfo.put("active", true);
-                            waveInfo.put("totalZombies", 10);
-                            waveInfo.put("zombiesLeft", 10);
+                            waveInfo.put("totalZombies", totalZombies);
+                            waveInfo.put("zombiesLeft", totalZombies);
+                            // Calculate health multiplier (simplified: 1.3^wave)
+                            double healthMultiplier = Math.pow(1.3, waveNumber - 1);
+                            waveInfo.put("zombieHealthMultiplier", healthMultiplier);
                             room.getState().put("gameState", "playing");
-                            socketIOServer.getRoomOperations(roomId).sendEvent("waveStart", java.util.Map.of("wave", 1));
+                            socketIOServer.getRoomOperations(roomId).sendEvent("waveStart", java.util.Map.of("wave", waveNumber));
+                            
+                            // Start zombie spawning
+                            startZombieSpawning(roomId, room, waveNumber, totalZombies);
                         }
                     }
                 } else if ("spawnSelf".equals(type)) {
@@ -567,6 +602,53 @@ public class GameSocketHandler {
                 } else if ("shotSound".equals(type)) {
                     // Broadcast shot sound fx to clients in room
                     socketIOServer.getRoomOperations(roomId).sendEvent("shotSound", data);
+                } else if ("zombieHit".equals(type)) {
+                    // Handle zombie hit - process in room and broadcast result
+                    room.handleMessage(type, data, client.getSessionId().toString());
+                    
+                    // Check if zombie was killed
+                    if (data instanceof Map<?, ?>) {
+                        @SuppressWarnings("unchecked")
+                        Map<String, Object> hitData = (Map<String, Object>) data;
+                        Object zombieKilled = hitData.get("_zombieKilled");
+                        
+                        if (zombieKilled instanceof Boolean && ((Boolean) zombieKilled)) {
+                            // Zombie was killed
+                            Object zombieId = hitData.get("zombieId");
+                            Object zombieX = hitData.get("_zombieX");
+                            Object zombieY = hitData.get("_zombieY");
+                            Object killerPlayerId = hitData.get("_killerPlayerId");
+                            
+                            // Kill zombie in room
+                            room.killZombie(zombieId, killerPlayerId != null ? killerPlayerId.toString() : null);
+                            
+                            // Broadcast zombie dead and blood effect
+                            Map<String, Object> zombieDeadMsg = new ConcurrentHashMap<>();
+                            zombieDeadMsg.put("zombieId", zombieId);
+                            socketIOServer.getRoomOperations(roomId).sendEvent("zombieDead", zombieDeadMsg);
+                            
+                            if (zombieX != null && zombieY != null) {
+                                Map<String, Object> bloodMsg = new ConcurrentHashMap<>();
+                                bloodMsg.put("x", zombieX);
+                                bloodMsg.put("y", zombieY);
+                                bloodMsg.put("size", 8);
+                                socketIOServer.getRoomOperations(roomId).sendEvent("blood", bloodMsg);
+                            }
+                        } else {
+                            // Zombie still alive - broadcast hit with angle and knockback
+                            Object angle = hitData.get("_angle");
+                            Object knockBack = hitData.get("_knockBack");
+                            
+                            if (angle != null && knockBack != null) {
+                                Map<String, Object> hitMsg = new ConcurrentHashMap<>();
+                                hitMsg.put("zombieId", hitData.get("zombieId"));
+                                hitMsg.put("bulletId", hitData.get("bulletId"));
+                                hitMsg.put("angle", angle);
+                                hitMsg.put("knockBack", knockBack);
+                                socketIOServer.getRoomOperations(roomId).sendEvent("zombieHit", hitMsg);
+                            }
+                        }
+                    }
                 } else if ("move".equals(type)) {
                     // Only update state; stateUpdate will be sent at tick to avoid jitter
                     log.debug("Routing message type '{}' to room.handleMessage()", type);
@@ -604,6 +686,107 @@ public class GameSocketHandler {
                 .filter(room -> room.startsWith("room_"))
                 .findFirst()
                 .orElse(null);
+    }
+    
+    /**
+     * Start zombie spawning for a wave
+     */
+    private void startZombieSpawning(String roomId, GameRoom room, int waveNumber, int totalZombies) {
+        // Cancel existing spawn scheduler if any
+        ScheduledFuture<?> existing = zombieSpawnSchedulers.remove(roomId);
+        if (existing != null) {
+            existing.cancel(true);
+        }
+        
+        // Calculate spawn interval (simplified: 1000ms base, decreases with wave)
+        long spawnInterval = Math.max(15, 1000 - (waveNumber - 1) * 80); // Minimum 15ms
+        
+        final int[] spawnedCount = {0};
+        final GameRoom roomRef = room;
+        final String rid = roomId;
+        
+        ScheduledFuture<?> spawnScheduler = scheduler.scheduleAtFixedRate(() -> {
+            try {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> waveInfo = (Map<String, Object>) roomRef.getState().get("waveInfo");
+                if (waveInfo == null) {
+                    return;
+                }
+                
+                Object active = waveInfo.get("active");
+                if (!(active instanceof Boolean) || !((Boolean) active)) {
+                    // Wave ended, stop spawning
+                    ScheduledFuture<?> sf = zombieSpawnSchedulers.remove(rid);
+                    if (sf != null) sf.cancel(true);
+                    return;
+                }
+                
+                if (spawnedCount[0] >= totalZombies) {
+                    // All zombies spawned
+                    ScheduledFuture<?> sf = zombieSpawnSchedulers.remove(rid);
+                    if (sf != null) sf.cancel(true);
+                    return;
+                }
+                
+                spawnedCount[0]++;
+                
+                // Calculate zombie type for this spawn
+                String zombieType = roomRef.calculateZombieSpawnType(waveNumber);
+                
+                // Find player with least zombies and send requestSpawnZombie
+                @SuppressWarnings("unchecked")
+                Map<String, Object> players = (Map<String, Object>) roomRef.getState().get("players");
+                if (players == null || players.isEmpty()) {
+                    return;
+                }
+                
+                // Count zombies per player
+                @SuppressWarnings("unchecked")
+                java.util.List<Map<String, Object>> zombies = (java.util.List<Map<String, Object>>) roomRef.getState().get("zombies");
+                java.util.Map<String, Integer> playerZombieCounts = new ConcurrentHashMap<>();
+                if (zombies != null) {
+                    for (Map<String, Object> zombie : zombies) {
+                        Object playerId = zombie.get("playerId");
+                        if (playerId != null) {
+                            String pid = playerId.toString();
+                            playerZombieCounts.put(pid, playerZombieCounts.getOrDefault(pid, 0) + 1);
+                        }
+                    }
+                }
+                
+                // Find player with least zombies
+                String targetPlayerId = null;
+                int minCount = Integer.MAX_VALUE;
+                for (String sessionId : roomRef.getPlayerSessions()) {
+                    int count = playerZombieCounts.getOrDefault(sessionId, 0);
+                    if (count < minCount) {
+                        minCount = count;
+                        targetPlayerId = sessionId;
+                    }
+                }
+                
+                if (targetPlayerId != null) {
+                    // Send requestSpawnZombie to target player
+                    Map<String, Object> request = new ConcurrentHashMap<>();
+                    request.put("type", zombieType);
+                    
+                    // Find client by sessionId and send message
+                    for (SocketIOClient client : socketIOServer.getRoomOperations(rid).getClients()) {
+                        if (client.getSessionId().toString().equals(targetPlayerId)) {
+                            client.sendEvent("requestSpawnZombie", request);
+                            log.debug("Sent requestSpawnZombie (type: {}) to player {}", zombieType, targetPlayerId);
+                            break;
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                log.error("Error in zombie spawn scheduler for room {}: ", rid, e);
+            }
+        }, 0, spawnInterval, TimeUnit.MILLISECONDS);
+        
+        zombieSpawnSchedulers.put(roomId, spawnScheduler);
+        log.info("Started zombie spawning for room {} wave {} ({} zombies, interval: {}ms)", 
+                roomId, waveNumber, totalZombies, spawnInterval);
     }
 }
 

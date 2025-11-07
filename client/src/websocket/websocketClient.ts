@@ -104,7 +104,11 @@ export const websocketClient = {
         reconnectToken: string;
         state: MyRoomState;
       }) => {
-        console.debug("[WS<-] roomJoined", { roomId: data.roomId, sessionId: data.sessionId });
+        console.debug("[WS<-] roomJoined", { roomId: data?.roomId, sessionId: data?.sessionId });
+        if (!data || !data.roomId || !data.state) {
+          console.error("[WS<-] roomJoined: Invalid data received", data);
+          return;
+        }
         currentRoomId = data.roomId;
         reconnectToken = data.reconnectToken;
         localStorage.setItem("reconnectToken", reconnectToken);
@@ -114,7 +118,7 @@ export const websocketClient = {
           state: data.state,
         };
         // Convert Map from JSON if needed
-        if (data.state.players && !(data.state.players instanceof Map)) {
+        if (data.state && data.state.players && !(data.state.players instanceof Map)) {
           data.state.players = new Map(Object.entries(data.state.players));
         }
         // Ensure arrays for bullets/zombies on initial state
@@ -152,11 +156,21 @@ export const websocketClient = {
       }
 
       socket.emit("joinRoom", { roomId, ...options }, (response: any) => {
+        if (!response) {
+          console.error("joinRoom: No response received from server");
+          reject(new Error("No response from server"));
+          return;
+        }
         if (response.success) {
           currentRoomId = roomId;
           reconnectToken = response.reconnectToken;
           localStorage.setItem("reconnectToken", reconnectToken);
           const state = response.state;
+          if (!state) {
+            console.error("joinRoom: No state in response", response);
+            reject(new Error("Invalid response: missing state"));
+            return;
+          }
           // Convert Map from JSON if needed
           if (state.players && !(state.players instanceof Map)) {
             state.players = new Map(Object.entries(state.players));
